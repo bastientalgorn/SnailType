@@ -698,7 +698,7 @@ function enterSlowMode(word) {
             console.log('Slow mode completed!', result);
             const slowStatus = document.getElementById('slowStatus');
             if (slowStatus) {
-                slowStatus.textContent = '🎉 Done! Press Enter for next word.';
+                slowStatus.textContent = 'Done! Press Enter for next word.';
                 slowStatus.className = 'slow-status success';
             }
             const handleEnter = async (e) => {
