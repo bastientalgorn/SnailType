@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snail Type - Slow</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            text-align: center;
+            max-width: 800px;
+        }
+
+        header {
+            border-bottom: none;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+        }
+
+        /* WPM Display - Shows current typing speed (12/T rounded up)
+         * Style: Large, bold, green to match theme, positioned above ball window */
+        .wpm-display {
+            font-size: 32px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        /* Metronome Container - Houses the bouncing ball animation
+         * Style: Fixed size (300x300), subtle background, centered */
+        .metronome-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            margin: 30px auto;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        /* Ball - Animated indicator that jumps from letter to letter
+         * Behavior: 
+         * - Initially stationary at bottom above first letter
+         * - Jumps sideways from letter to letter (small bounces, half height)
+         * - Jumps back to first letter at end of word (big bounce, full height)
+         * - Always lands at bottom (250px) regardless of bounce height
+         * Style: Green gradient with shadow for 3D effect */
+        .ball {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: radial-gradient(circle at 30% 30%, #4CAF50, #2d7a2d);
+            border-radius: 50%;
+            box-shadow: 0 10px 25px rgba(76, 175, 80, 0.5);
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        /* Word Display - Shows the word to type with color-coded letters
+         * Colors: typed (green), current (blue underlined), remaining (gray)
+         * Style: Large, monospace font with letter spacing for clarity */
+        .word-display {
+            font-size: 48px;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 10px;
+            margin: 20px 0;
+            min-height: 60px;
+        }
+
+        .typed {
+            color: #4CAF50;
+        }
+
+        .current {
+            color: #64B5F6;
+            text-decoration: underline;
+        }
+
+        .remaining {
+            color: #666;
+        }
+
+        /* Status Message - Displays contextual messages
+         * Messages:
+         * - Initially: "Start typing when ready..." (clears after first keypress)
+         * - Error: "Wrong letter! Expected: X" (clears when correct letter typed)
+         * - Error: "Too early! Wait for the beat." (clears when timing is correct)
+         * Style: Fixed height to prevent layout shift, always present but may be empty */
+        .status {
+            font-size: 24px;
+            font-family: 'Courier New', monospace;
+            margin: 20px 0;
+            min-height: 30px;
+            line-height: 30px;
+        }
+
+        /* Counter - Shows progress through repetitions (e.g., "3 / 10 repetitions") */
+        .counter {
+            font-size: 20px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            color: #999;
+        }
+
+        .btn {
+            background-color: transparent;
+            color: #4CAF50;
+            border: 2px solid #4CAF50;
+            padding: 10px 30px;
+            font-size: 1rem;
+            font-family: 'Courier New', monospace;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s ease;
+            min-width: 120px;
+        }
+
+        .btn:hover:not(:disabled) {
+            background-color: #4CAF50;
+            color: #1a1a1a;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .error {
+            color: #f44336;
+        }
+
+        .success {
+            color: #4CAF50;
+        }
+
+        /* Instructions - Static help text explaining the exercise */
+        .instructions {
+            font-size: 16px;
+            font-family: 'Courier New', monospace;
+            margin-top: 20px;
+            color: #999;
+        }
+
+        /* Timing Display - Debug panel showing all keypresses with timing in T units
+         * Behavior: 
+         * - Fixed on right side, doesn't affect main layout
+         * - Accumulates across all repetitions (never resets)
+         * - Shows correct letters, wrong letters, and "too early" attempts
+         * - Shows performance counter for adaptive difficulty system
+         * Style: Small font, minimal spacing, scrollable for long sessions */
+        .timing-display {
+            position: fixed;
+            right: 20px;
+            top: 20px;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            color: #666;
+            text-align: left;
+            max-width: 200px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .timing-entry {
+            margin: 0;
+            line-height: 1.2;
+        }
+        
+        .counter-entry {
+            margin: 5px 0;
+            padding: 5px 0;
+            border-top: 1px solid #444;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Slow Typing Metronome</h1>
+            <div>
+                <button id="debug-btn" class="debug-btn">Debug</button>
+                <button id="stats-btn" class="debug-btn">Stats</button>
+                <button id="options-btn" class="debug-btn">Options</button>
+            </div>
+        </header>
+
+        <div class="mode-buttons">
+            <button id="targeted-btn" class="mode-btn">Targeted</button>
+            <button id="mixed-btn" class="mode-btn">Mixed</button>
+            <button id="general-btn" class="mode-btn">General</button>
+            <button id="slow-btn" class="mode-btn active">Slow</button>
+        </div>
+
+        <div class="wpm-display" id="wpmDisplay">0 WPM</div>
+
+        <div class="metronome-container">
+            <div class="ball" id="ball"></div>
+        </div>
+
+        <div class="word-display" id="wordDisplay"></div>
+        
+        <div class="status" id="status">Start typing when ready...</div>
+        
+        <div class="counter" id="counter">0 / 10 repetitions</div>
+
+        <div class="instructions">
+            Type each letter in rhythm with the bouncing ball.<br>
+            Press the letter when the ball is at the bottom.
+        </div>
+    </div>
+
+    <div class="timing-display" id="timingDisplay"></div>
+
+    <script type="module">
+        import { initSlowMode } from './slow.js';
+        
+        // Get word from URL parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const word = urlParams.get('word') || "company";
+        
+        // Setup navigation buttons
+        const statsBtn = document.getElementById('stats-btn');
+        if (statsBtn) {
+            statsBtn.addEventListener('click', () => {
+                window.location.href = 'stats.html';
+            });
+        }
+
+        const optionsBtn = document.getElementById('options-btn');
+        if (optionsBtn) {
+            optionsBtn.addEventListener('click', () => {
+                window.location.href = 'options.html';
+            });
+        }
+
+        const debugBtn = document.getElementById('debug-btn');
+        if (debugBtn) {
+            debugBtn.addEventListener('click', () => {
+                window.location.href = 'index.html';
+            });
+        }
+
+        const targetedBtn = document.getElementById('targeted-btn');
+        if (targetedBtn) {
+            targetedBtn.addEventListener('click', () => {
+                window.location.href = 'index.html';
+            });
+        }
+
+        const mixedBtn = document.getElementById('mixed-btn');
+        if (mixedBtn) {
+            mixedBtn.addEventListener('click', () => {
+                window.location.href = 'index.html';
+            });
+        }
+
+        const generalBtn = document.getElementById('general-btn');
+        if (generalBtn) {
+            generalBtn.addEventListener('click', () => {
+                window.location.href = 'index.html';
+            });
+        }
+        
+        // Initialize slow mode
+        const cleanup = initSlowMode({
+            word: word,
+            initialPeriod: 1.0,
+            tFactor: 0.8,
+            targetWpm: 30,
+            onComplete: (result) => {
+                console.log('Completed!', result);
+            }
+        });
+    </script>
+</body>
+</html>
+     

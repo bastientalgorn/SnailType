@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snail Type - Stats</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Typing Statistics</h1>
+            <a href="index.html" class="info-link">Back</a>
+        </header>
+        
+        <main>
+            <section class="stats-section">
+                <h2>Character Error Distribution</h2>
+                <div id="char-distribution" class="char-distribution">
+                    <p class="empty-state">No typing data recorded yet. Start practicing to see your statistics!</p>
+                </div>
+            </section>
+            
+            <section class="stats-section">
+                <h2>Top 20 Most Problematic Words</h2>
+                <div id="word-problems" class="word-problems">
+                    <p class="empty-state">No word statistics recorded yet.</p>
+                </div>
+            </section>
+            
+            <section class="stats-section">
+                <h2>All Words Statistics</h2>
+                <div id="word-table-container" class="word-table-container">
+                    <p class="empty-state">No word statistics recorded yet.</p>
+                </div>
+            </section>
+            
+            <section class="export-section">
+                <h2>Export Data</h2>
+                <p>Download your typing statistics as a JSON file for backup or migration.</p>
+                <button id="export-btn" class="export-btn">Download JSON</button>
+            </section>
+            
+            <section class="export-section">
+                <h2>Clear Data</h2>
+                <p>Reset all typing statistics and start fresh. This action cannot be undone.</p>
+                <button id="clear-btn" class="clear-btn">Clear All Data</button>
+            </section>
+        </main>
+    </div>
+    
+    <script type="module" src="stats.js"></script>
+</body>
+</html>

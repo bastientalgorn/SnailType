@@ -1,0 +1,811 @@
+﻿* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Courier New', monospace;
+    background-color: #1a1a1a;
+    color: #ffffff;
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 40px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #333;
+}
+
+header > div {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.mode-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    justify-content: center;
+    margin: 0 auto 30px;
+    width: fit-content;
+}
+
+.mode-btn-wide {
+    flex-basis: 100%;
+    min-width: unset;
+    width: 100%;
+}
+
+.mode-btn {
+    padding: 10px 30px;
+    font-size: 1rem;
+    font-family: 'Courier New', monospace;
+    border: 2px solid #4CAF50;
+    border-radius: 5px;
+    background-color: transparent;
+    color: #4CAF50;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 140px;
+}
+
+.mode-btn:hover {
+    background-color: #4CAF50;
+    color: #1a1a1a;
+}
+
+.mode-btn:active {
+    transform: translateY(2px);
+}
+
+.mode-btn.active {
+    background-color: #4CAF50;
+    color: #1a1a1a;
+}
+
+/* Toast notification */
+.toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background-color: #4CAF50;
+    color: #fff;
+    padding: 12px 30px;
+    border-radius: 5px;
+    font-family: 'Courier New', monospace;
+    font-size: 1rem;
+    opacity: 0;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    pointer-events: none;
+}
+
+.toast.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+.debug-btn,
+.info-link {
+    padding: 8px 16px;
+    font-size: 0.9rem;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 80px;
+    text-align: center;
+    display: inline-block;
+    box-sizing: border-box;
+    font-family: 'Courier New', monospace;
+    line-height: 1.4;
+    border: 2px solid;
+}
+
+.debug-btn {
+    background-color: transparent;
+    color: #999;
+    border-color: #666;
+}
+
+.debug-btn:hover {
+    border-color: #999;
+    color: #ccc;
+}
+
+.debug-btn.active {
+    background-color: #666;
+    border-color: #999;
+    color: #fff;
+}
+
+h1 {
+    font-size: 2.5rem;
+    color: #4CAF50;
+}
+
+h2 {
+    font-size: 1.8rem;
+    color: #4CAF50;
+    margin-bottom: 20px;
+}
+
+.info-link {
+    color: #64B5F6;
+    text-decoration: none;
+    border-color: #64B5F6;
+    background-color: transparent;
+}
+
+.info-link:hover {
+    background-color: #64B5F6;
+    color: #1a1a1a;
+}
+
+.info-link:hover {
+    background-color: #64B5F6;
+    color: #1a1a1a;
+}
+
+main {
+    margin-top: 20px;
+}
+
+/* Main page styles */
+.test-display {
+    background-color: transparent;
+    border-radius: 10px;
+    padding: 30px;
+    margin-bottom: 30px;
+    min-height: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.target-text {
+    font-size: 2rem;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 2px;
+    text-align: center;
+}
+
+.target-text .word {
+    display: inline-block;
+    white-space: nowrap;
+}
+
+.target-text .char {
+    display: inline;
+    transition: color 0.1s ease;
+}
+
+.target-text .char.correct {
+    color: #4CAF50;
+}
+
+.target-text .char.corrected {
+    color: #4CAF50;
+    text-decoration: underline;
+    text-decoration-color: #FF9800;
+    text-underline-offset: 3px;
+}
+
+.target-text .char.incorrect {
+    color: #f44336;
+    background-color: rgba(244, 67, 54, 0.2);
+    border-radius: 3px;
+}
+
+.target-text .space-char {
+    padding: 0 8px;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+.target-text .space-char.pending {
+    background-color: transparent;
+}
+
+.target-text .space-char.correct {
+    background-color: #1b421b;
+}
+
+.target-text .space-char.corrected {
+    background-color: #1b421b;
+    border-bottom: 2px solid #FF9800;
+}
+
+.target-text .space-char.incorrect {
+    background-color: #f44336;
+}
+
+.target-text .char.pending {
+    color: #ffffff;
+}
+
+.input-area {
+    margin-bottom: 30px;
+}
+
+.typing-input {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.results {
+    background-color: transparent;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    min-height: 60px;
+    font-size: 1.2rem;
+    text-align: center;
+    border: none;
+}
+
+.result-metric {
+    font-size: 2rem;
+    font-weight: normal;
+    margin: 10px 0;
+    color: #ffffff;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 2px;
+}
+
+.result-status {
+    font-size: 2rem;
+    font-weight: normal;
+    margin: 15px 0;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 2px;
+}
+
+.result-next {
+    font-size: 2rem;
+    color: #999;
+    margin-top: 20px;
+    font-style: normal;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 2px;
+}
+
+.results .success-text {
+    color: #4CAF50;
+}
+
+.results .retry-text {
+    color: #FFC107;
+}
+
+.debug-display {
+    background-color: transparent;
+    border-radius: 10px;
+    padding: 20px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.95rem;
+    display: none;
+    user-select: text;
+    cursor: text;
+}
+
+.debug-display.visible {
+    display: block;
+}
+
+.debug-display .stat-line {
+    margin: 8px 0;
+    padding: 5px;
+    background-color: #333;
+    border-radius: 5px;
+    white-space: pre-wrap;
+}
+
+/* Info page styles */
+.stats-section {
+    background-color: #2a2a2a;
+    border-radius: 10px;
+    padding: 30px;
+    margin-bottom: 30px;
+}
+
+.char-distribution,
+.word-problems {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 450px;
+}
+
+.word-table-container {
+    max-height: 600px;
+    overflow-y: auto;
+    overflow-x: auto;
+}
+
+.word-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+}
+
+.word-table thead {
+    position: sticky;
+    top: 0;
+    background-color: #333;
+    z-index: 10;
+}
+
+.word-table th {
+    padding: 12px 8px;
+    text-align: left;
+    border-bottom: 2px solid #666;
+    color: #4CAF50;
+    font-weight: bold;
+}
+
+.word-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s ease;
+}
+
+.word-table th.sortable:hover {
+    background-color: #444;
+}
+
+.word-table th.sorted {
+    color: #64B5F6;
+}
+
+.sort-arrow {
+    font-size: 0.8rem;
+    margin-left: 5px;
+    color: #999;
+}
+
+.word-table th.sorted .sort-arrow {
+    color: #64B5F6;
+}
+
+.word-table td {
+    padding: 8px;
+    border-bottom: 1px solid #444;
+}
+
+.word-table tbody tr:hover {
+    background-color: #2a2a2a;
+}
+
+.word-cell {
+    color: #64B5F6;
+    font-weight: bold;
+}
+
+.word-table th:nth-child(2),
+.word-table th:nth-child(3),
+.word-table th:nth-child(4),
+.word-table th:nth-child(5),
+.word-table th:nth-child(6),
+.word-table td:nth-child(2),
+.word-table td:nth-child(3),
+.word-table td:nth-child(4),
+.word-table td:nth-child(5),
+.word-table td:nth-child(6) {
+    text-align: right;
+}
+
+.char-chart,
+.word-chart {
+    background-color: #1a1a1a;
+    border-radius: 8px;
+}
+
+.chart-bar {
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+.chart-tooltip {
+    position: fixed;
+    background-color: #333;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 5px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    pointer-events: none;
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.word-problems {
+    font-family: 'Courier New', monospace;
+    font-size: 1.1rem;
+}
+
+.char-distribution .char-stat,
+.word-problems .word-stat {
+    padding: 10px;
+    margin: 8px 0;
+    background-color: #333;
+    border-radius: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.char-stat .char-display {
+    font-weight: bold;
+    color: #f44336;
+    font-size: 1.3rem;
+    margin-right: 20px;
+    min-width: 40px;
+}
+
+.char-stat .char-info,
+.word-stat .word-info {
+    flex: 1;
+}
+
+.word-stat .word-name {
+    font-weight: bold;
+    color: #64B5F6;
+    margin-right: 15px;
+}
+
+.empty-state {
+    color: #999;
+    font-style: italic;
+    text-align: center;
+    padding: 20px;
+}
+
+/* Options page styles */
+.options-compact {
+    padding: 20px;
+}
+
+/* Modes table */
+.modes-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 10px;
+}
+
+.modes-table th {
+    padding: 10px;
+    text-align: center;
+    color: #4CAF50;
+    font-size: 1rem;
+    border-bottom: 2px solid #555;
+}
+
+.modes-table th:first-child {
+    text-align: left;
+}
+
+.modes-table td {
+    padding: 6px 10px;
+    vertical-align: middle;
+    text-align: right;
+}
+
+.modes-table td:first-child {
+    text-align: left;
+}
+
+.modes-table tr:nth-child(odd) td {
+    background-color: #2a2a2a;
+}
+
+.option-label-cell {
+    color: #ccc;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.option-label-cell .option-desc {
+    font-size: 0.7rem;
+    color: #888;
+}
+
+.mode-input {
+    padding: 5px 8px;
+    font-size: 0.85rem;
+    border: 2px solid #666;
+    border-radius: 5px;
+    background-color: #1a1a1a;
+    color: #fff;
+    font-family: 'Courier New', monospace;
+    width: 100px;
+    box-sizing: border-box;
+}
+
+.mode-input:focus {
+    outline: none;
+    border-color: #4CAF50;
+}
+
+input[type="number"].mode-input {
+    text-align: right;
+}
+
+select.mode-input {
+    text-align: right;
+    text-align-last: right;
+}
+
+.options-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.export-section {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.export-section {
+    background-color: #2a2a2a;
+    border-radius: 10px;
+    padding: 30px;
+    text-align: center;
+}
+
+.export-section p {
+    margin-bottom: 20px;
+    color: #ccc;
+    font-size: 1.1rem;
+}
+
+.export-btn {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 15px 40px;
+    font-size: 1.2rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.export-btn:hover {
+    background-color: #45a049;
+}
+
+.export-btn:active {
+    transform: translateY(2px);
+}
+
+.clear-btn {
+    background-color: #f44336;
+    color: white;
+    border: none;
+    padding: 15px 40px;
+    font-size: 1.2rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.clear-btn:hover {
+    background-color: #da190b;
+}
+
+.clear-btn:active {
+    transform: translateY(2px);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .container {
+        padding: 15px;
+    }
+    
+    h1 {
+        font-size: 1.8rem;
+    }
+    
+    .target-text {
+        font-size: 1.5rem;
+        letter-spacing: 1px;
+    }
+    
+    .typing-input {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+    
+    header {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+    
+    .char-chart,
+    .word-chart {
+        width: 100%;
+        height: auto;
+    }
+    
+    .char-distribution,
+    .word-problems {
+        overflow-x: auto;
+    }
+}
+
+/* ========================================================================== */
+/* SLOW MODE STYLES */
+/* ========================================================================== */
+
+.slow-mode-display {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+/* WPM Display - Shows current typing speed */
+.wpm-display {
+    font-size: 32px;
+    font-family: 'Courier New', monospace;
+    margin: 10px 0;
+    color: #4CAF50;
+    font-weight: bold;
+}
+
+/* Metronome Container - Houses the bouncing ball animation */
+.metronome-container {
+    position: relative;
+    width: 300px;
+    height: 300px;
+    margin: 10px auto;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+
+/* Ball - Animated indicator that jumps from letter to letter */
+.ball {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    background: radial-gradient(circle at 30% 30%, #4CAF50, #2d7a2d);
+    border-radius: 50%;
+    box-shadow: 0 10px 25px rgba(76, 175, 80, 0.5);
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+/* Word Display - Shows the word to type with color-coded letters */
+.word-display {
+    font-size: 48px;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 10px;
+    margin: 8px 0;
+    min-height: 60px;
+}
+
+.word-display .typed {
+    color: #4CAF50;
+}
+
+.word-display .current {
+    color: #64B5F6;
+    text-decoration: underline;
+}
+
+.word-display .remaining {
+    color: #666;
+}
+
+/* Status Message - Displays contextual messages */
+.status {
+    font-size: 24px;
+    font-family: 'Courier New', monospace;
+    margin: 20px 0;
+    min-height: 30px;
+    line-height: 30px;
+}
+
+.status.error {
+    color: #f44336;
+}
+
+.status.success {
+    color: #4CAF50;
+}
+
+/* Counter - Shows progress through repetitions */
+.counter {
+    font-size: 20px;
+    font-family: 'Courier New', monospace;
+    margin: 10px 0;
+    color: #999;
+}
+
+/* Slow mode container */
+.slow-mode-container {
+    text-align: center;
+}
+
+.slow-status {
+    font-size: 24px;
+    font-family: 'Courier New', monospace;
+    margin: 20px 0;
+    min-height: 30px;
+    line-height: 30px;
+}
+
+.slow-status.error {
+    color: #f44336;
+}
+
+.slow-status.success {
+    color: #4CAF50;
+}
+
+.slow-counter {
+    font-size: 20px;
+    font-family: 'Courier New', monospace;
+    margin: 10px 0;
+    color: #999;
+}
+
+.slow-instructions {
+    font-size: 16px;
+    font-family: 'Courier New', monospace;
+    margin-top: 20px;
+    color: #666;
+}
+
+/* Timing display (slow mode) */
+.timing-display {
+    position: fixed;
+    right: 20px;
+    top: 20px;
+    font-size: 12px;
+    font-family: 'Courier New', monospace;
+    color: #666;
+    text-align: left;
+    max-width: 200px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.timing-entry {
+    margin: 0;
+    line-height: 1.2;
+}
+
+.counter-entry {
+    margin: 5px 0;
+    padding: 5px 0;
+    border-top: 1px solid #444;
+    color: #4CAF50;
+    font-weight: bold;
+}

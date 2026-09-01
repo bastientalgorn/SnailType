@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snail Type - Options</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Options</h1>
+            <a href="index.html" class="info-link">Back</a>
+        </header>
+        
+        <main>
+            <section class="stats-section options-compact">
+                <div id="modes-table-container"></div>
+                <div class="options-buttons">
+                    <button id="save-btn" class="export-btn">Save</button>
+                    <button id="reset-btn" class="clear-btn">Reset</button>
+                </div>
+            </section>
+            <pre id="debug-output" style="color: #888; font-size: 0.75rem; margin-top: 20px; white-space: pre-wrap; word-break: break-all;"></pre>
+        </main>
+    </div>
+    
+    <div id="toast" class="toast">Options saved!</div>
+    
+    <script type="module" src="options.js"></script>
+</body>
+</html>

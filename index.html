@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snail Type</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Snail Type</h1>
+            <div>
+                <button id="debug-btn" class="debug-btn">Debug</button>
+                <button id="stats-btn" class="debug-btn">Stats</button>
+                <button id="options-btn" class="debug-btn">Options</button>
+            </div>
+        </header>
+        
+        <div class="mode-buttons">
+        </div>
+        
+        <main>
+            <div id="test-display" class="test-display">
+                <div id="target-text" class="target-text"></div>
+            </div>
+            
+            <div class="input-area">
+                <input type="text" id="typing-input" class="typing-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Start typing...">
+            </div>
+            
+            <div id="results" class="results"></div>
+            
+            <div id="debug-display" class="debug-display"></div>
+
+            <!-- Slow mode UI (hidden by default) -->
+            <div id="slow-mode-container" class="slow-mode-container" style="display:none">
+                <div class="wpm-display" id="wpmDisplay">0 WPM</div>
+                <div class="metronome-container">
+                    <div class="ball" id="ball"></div>
+                </div>
+                <div class="word-display" id="wordDisplay"></div>
+                <div class="slow-status" id="slowStatus">Start typing when ready...</div>
+                <div class="slow-counter" id="slowCounter">0 reps</div>
+                <div class="slow-instructions">
+                    Type each letter in rhythm with the bouncing ball.<br>
+                    Press the letter when the ball is at the bottom.
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="timing-display" id="timingDisplay"></div>
+    
+    <script type="module" src="app.js"></script>
+</body>
+</html>
