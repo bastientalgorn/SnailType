@@ -2,6 +2,8 @@
 
 A local-first typing practice web app. Track your typing speed and accuracy, review your weakest words, and improve over time — all data stays in your browser.
 
+**Live site:** [https://bastientalgorn.github.io/SnailType/](https://bastientalgorn.github.io/SnailType/)
+
 ## Features
 
 - **Typing test** (`index.html`) – Core typing practice session.
