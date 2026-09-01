@@ -399,7 +399,7 @@ class TypingTest {
         if (OPTIONS.capitalize === 'yes') {
             practiceWords = practiceWords.map(w => w.charAt(0).toUpperCase() + w.slice(1));
         } else if (OPTIONS.capitalize === 'random') {
-            practiceWords = practiceWords.map(w => Math.random() < 0.5 ? w.charAt(0).toUpperCase() + w.slice(1) : w);
+            practiceWords = practiceWords.map(w => Math.random() < 0.2 ? w.charAt(0).toUpperCase() + w.slice(1) : w);
         }
         
         // Repeat words

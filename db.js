@@ -18,7 +18,7 @@ const DEFAULT_MODES = {
             useFrequency: false,
             useErrorRate: false,
             favorNewWords: true,
-            capitalize: 'random',
+            capitalize: 'no',
             normalizeErrorByLength: false,
             mixedModeCount: 1
         }
