@@ -491,6 +491,8 @@ main {
 /* Options page styles */
 .options-compact {
     padding: 20px;
+    max-width: 640px;
+    margin: 0 auto;
 }
 
 /* Modes table */
@@ -502,12 +504,12 @@ main {
 }
 
 .modes-table th {
-    padding: 10px 5px;
+    padding: 10px 4px;
     text-align: center;
     color: #4CAF50;
-    font-size: 0.95rem;
+    font-size: 0.85rem;
     border-bottom: 2px solid #555;
-    width: 90px;
+    width: 62px;
 }
 
 .modes-table th:first-child {
@@ -516,7 +518,7 @@ main {
 }
 
 .modes-table td {
-    padding: 6px 5px;
+    padding: 6px 4px;
     vertical-align: middle;
     text-align: right;
 }
@@ -546,14 +548,14 @@ main {
 }
 
 .mode-input {
-    padding: 5px 8px;
-    font-size: 0.85rem;
+    padding: 5px 4px;
+    font-size: 0.8rem;
     border: 2px solid #666;
     border-radius: 5px;
     background-color: #1a1a1a;
     color: #fff;
     font-family: 'Courier New', monospace;
-    width: 70px;
+    width: 54px;
     max-width: 100%;
     box-sizing: border-box;
 }
