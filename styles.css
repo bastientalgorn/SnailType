@@ -293,7 +293,7 @@ main {
 }
 
 .debug-display {
-    background-color: transparent;
+    background-color: #333;
     border-radius: 10px;
     padding: 20px;
     font-family: 'Courier New', monospace;
@@ -308,10 +308,9 @@ main {
 }
 
 .debug-display .stat-line {
-    margin: 8px 0;
-    padding: 5px;
-    background-color: #333;
-    border-radius: 5px;
+    margin: 0;
+    padding: 0;
+    background-color: transparent;
     white-space: pre-wrap;
 }
 

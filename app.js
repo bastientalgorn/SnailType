@@ -292,7 +292,8 @@ async function displayWordStats(words, wordResults) {
         }
     }
     
-    // Display statistics
+    // Display statistics (single block, matching the pre-test view)
+    const lines = [];
     for (const word of uniqueWords) {
         const before = wordStats[word] || { successes: 0, failures: 0 };
         const delta = testStats[word] || { successes: 0, failures: 0 };
@@ -300,12 +301,14 @@ async function displayWordStats(words, wordResults) {
             successes: before.successes + delta.successes,
             failures: before.failures + delta.failures
         };
-        
-        const statLine = document.createElement('div');
-        statLine.classList.add('stat-line');
-        statLine.textContent = `'${word}': [${before.successes}, ${before.failures}] + [${delta.successes}, ${delta.failures}] → [${after.successes}, ${after.failures}]`;
-        statsDiv.appendChild(statLine);
+
+        lines.push(`'${word}': [${before.successes}, ${before.failures}] + [${delta.successes}, ${delta.failures}] → [${after.successes}, ${after.failures}]`);
     }
+
+    const statLine = document.createElement('div');
+    statLine.classList.add('stat-line');
+    statLine.textContent = lines.join('\n');
+    statsDiv.appendChild(statLine);
 
     // The panel was cleared above, so restore the keystroke log
     if (typingTest) typingTest.renderKeyLog();
