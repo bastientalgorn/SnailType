@@ -4,6 +4,10 @@ A local-first typing practice web app. Track your typing speed and accuracy, rev
 
 **Live site:** [https://bastientalgorn.github.io/SnailType/](https://bastientalgorn.github.io/SnailType/)
 
+## Goal
+
+SnailType's goal is to help you improve your typing by keeping track of the words you often type wrong, and giving you more practice on exactly those words — rather than generic random text.
+
 ## Features
 
 - **Typing test** (`index.html`) – Core typing practice session.
@@ -47,4 +51,14 @@ npx serve .
 
 ## Data Storage
 
-All user data (typing stats, settings) is stored locally in the browser (localStorage/IndexedDB). No server or account is required. Stats can be exported/imported as JSON from the Stats page.
+All user data (settings/options and typing stats) is stored **locally in your browser's IndexedDB**. No server, backend, or account is required, and nothing is sent anywhere — everything stays on your device. Stats can be exported/imported as JSON from the Stats page if you want to back them up or move them to another browser.
+
+### What stats are collected
+
+For each word you type, SnailType keeps a rolling history of your last **50 attempts** at that word, recorded as a success/failure outcome (i.e., whether you typed it correctly or made a mistake). This history is used to:
+
+- Estimate your success probability for each word.
+- Identify your weakest/most error-prone words.
+- Prioritize those words for practice in "Targeted" and "Slow" modes.
+
+No raw keystrokes, timestamps of individual keypresses, or personally identifying information are collected — only the per-word correct/incorrect outcome history described above, plus aggregate typing speed (WPM) and accuracy for each test session.
