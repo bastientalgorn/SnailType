@@ -306,6 +306,9 @@ async function displayWordStats(words, wordResults) {
         statLine.textContent = `'${word}': [${before.successes}, ${before.failures}] + [${delta.successes}, ${delta.failures}] → [${after.successes}, ${after.failures}]`;
         statsDiv.appendChild(statLine);
     }
+
+    // The panel was cleared above, so restore the keystroke log
+    if (typingTest) typingTest.renderKeyLog();
 }
 
 // Keys that are blocked while typing a test.
@@ -327,6 +330,50 @@ const BLOCKED_KEYS = new Set([
 // undo, redo). Everything else (Ctrl+R, Ctrl+T, devtools, ...) is left alone.
 const BLOCKED_CTRL_KEYS = new Set(['a', 'x', 'v', 'z', 'y']);
 
+// Modifier keys that are logged as part of a combo rather than on their own
+const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta', 'CapsLock']);
+
+// Human-readable labels for non-printable keys, for the keystroke log
+const KEY_LABELS = {
+    'Backspace': 'back',
+    'ArrowLeft': 'left',
+    'ArrowRight': 'right',
+    'ArrowUp': 'up',
+    'ArrowDown': 'down',
+    'Enter': 'enter',
+    'Tab': 'tab',
+    'Delete': 'del',
+    'Home': 'home',
+    'End': 'end',
+    'PageUp': 'pgup',
+    'PageDown': 'pgdn',
+    'Escape': 'esc',
+    ' ': ' '
+};
+
+// Render a keydown event as a compact string for the keystroke log.
+// Printable characters appear as-is; everything else as <name>.
+function formatKeyForLog(e) {
+    const parts = [];
+    if (e.ctrlKey) parts.push('ctrl');
+    if (e.metaKey) parts.push('cmd');
+    if (e.altKey) parts.push('alt');
+
+    const label = KEY_LABELS[e.key];
+    const isPrintable = e.key.length === 1;
+
+    if (parts.length > 0) {
+        // A modifier combo is always shown in bracket form
+        parts.push(label !== undefined && !isPrintable ? label : e.key.toLowerCase());
+        return `<${parts.join('+')}>`;
+    }
+
+    if (e.key === ' ') return ' ';
+    if (label !== undefined) return `<${label}>`;
+    if (isPrintable) return e.key;
+    return `<${e.key.toLowerCase()}>`;
+}
+
 // Run typing test
 class TypingTest {
     constructor() {
@@ -338,6 +385,7 @@ class TypingTest {
         this.currentWpmThreshold = OPTIONS.minWpm;
         this.attemptCount = 0;
         this.tabbingAway = false;
+        this.keyLog = [];  // [{ text, blocked }] keystrokes for the debug panel
         
         this.inputElement = document.getElementById('typing-input');
         this.resultsElement = document.getElementById('results');
@@ -352,6 +400,15 @@ class TypingTest {
 
         // Filter keys that would move the caret or edit mid-string
         this.inputElement.addEventListener('keydown', (e) => {
+            // Record every keystroke (except bare modifiers) for the debug panel
+            const logEntry = MODIFIER_KEYS.has(e.key)
+                ? null
+                : { text: formatKeyForLog(e), blocked: false };
+            if (logEntry) {
+                this.keyLog.push(logEntry);
+                if (this.keyLog.length > 300) this.keyLog.shift();
+            }
+
             // Tab is allowed through so the page stays keyboard-navigable.
             // Flag it so the blur handler below doesn't steal focus back.
             if (e.key === 'Tab') {
@@ -360,20 +417,25 @@ class TypingTest {
             }
 
             if (BLOCKED_KEYS.has(e.key)) {
+                if (logEntry) logEntry.blocked = true;
                 e.preventDefault();
                 return;
             }
 
             // Ctrl/Cmd + A/X/V/Z/Y
             if ((e.ctrlKey || e.metaKey) && BLOCKED_CTRL_KEYS.has(e.key.toLowerCase())) {
+                if (logEntry) logEntry.blocked = true;
                 e.preventDefault();
                 return;
             }
 
             // Delete-word-backwards (Ctrl/Alt/Cmd + Backspace)
             if (e.key === 'Backspace' && (e.ctrlKey || e.metaKey || e.altKey)) {
+                if (logEntry) logEntry.blocked = true;
                 e.preventDefault();
             }
+
+            if (logEntry) this.renderKeyLog();
         });
 
         // A mouse click or drag-select can also move the caret, so pin it to the
@@ -419,6 +481,41 @@ class TypingTest {
         }, true);
     }
     
+    // Render the keystroke log at the top of the debug panel.
+    // Rebuilt on demand because the debug panel is cleared on each redraw.
+    renderKeyLog() {
+        const statsDiv = document.getElementById('debug-display');
+        if (!statsDiv) return;
+
+        let block = statsDiv.querySelector('#key-log');
+        if (!block) {
+            block = document.createElement('div');
+            block.id = 'key-log';
+            block.classList.add('stat-line');
+            statsDiv.insertBefore(block, statsDiv.firstChild);
+        }
+
+        block.innerHTML = '';
+
+        const title = document.createElement('div');
+        title.textContent = '=== KEYSTROKES ===';
+        block.appendChild(title);
+
+        const seq = document.createElement('div');
+        seq.classList.add('key-log-sequence');
+        for (const entry of this.keyLog) {
+            const span = document.createElement('span');
+            span.textContent = entry.text;
+            if (entry.blocked) span.classList.add('key-blocked');
+            seq.appendChild(span);
+        }
+        block.appendChild(seq);
+
+        const spacer = document.createElement('div');
+        spacer.textContent = '\u00a0';
+        block.appendChild(spacer);
+    }
+
     async displayInitialWordStats() {
         const statsDiv = document.getElementById('debug-display');
         statsDiv.innerHTML = '';
@@ -458,6 +555,8 @@ class TypingTest {
         statLine.classList.add('stat-line');
         statLine.textContent = lines.join('\n');
         statsDiv.appendChild(statLine);
+
+        this.renderKeyLog();
     }
     
     async startNewTest() {
@@ -492,6 +591,7 @@ class TypingTest {
         this.charEverWrong = new Set();
         this.currentWpmThreshold = OPTIONS.minWpm;
         this.attemptCount = 0;
+        this.keyLog = [];
         
         this.inputElement.value = '';
         this.inputElement.disabled = false;

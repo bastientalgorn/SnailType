@@ -315,6 +315,18 @@ main {
     white-space: pre-wrap;
 }
 
+/* Keystroke log (debug panel) */
+.key-log-sequence {
+    white-space: pre-wrap;
+    word-break: break-all;
+    line-height: 1.6;
+}
+
+.key-log-sequence .key-blocked {
+    color: #ff6b6b;
+    text-decoration: line-through;
+}
+
 /* Info page styles */
 .stats-section {
     background-color: #2a2a2a;
