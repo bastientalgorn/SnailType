@@ -123,8 +123,10 @@ async function addMistypedChar(char) {
     await saveMistypedChars(mistypedChars);
 }
 
-// Calculate word interest score based on options and word stats
-function getWordInterest(options, word, stats) {
+// Calculate word interest score based on options and word stats.
+// `randomize` is disabled by the debug panel so it can show the deterministic
+// score (the random factor would differ from the one used during selection).
+function getWordInterest(options, word, stats, randomize = true) {
     const success = stats.successes;
     const failure = stats.failures;
     
@@ -150,9 +152,32 @@ function getWordInterest(options, word, stats) {
     }
 
     // Randomize
-    p = p * Math.random(); 
+    if (randomize) {
+        p = p * Math.random();
+    }
 
     return p;
+}
+
+// Format rows as a fixed-width text table.
+// `headers` is an array of strings, `rows` an array of string arrays.
+// `alignRight` lists the column indices to right-align.
+function formatTable(headers, rows, alignRight = []) {
+    const widths = headers.map((h, i) =>
+        Math.max(h.length, ...rows.map(r => String(r[i] ?? '').length))
+    );
+
+    const pad = (text, i) => {
+        const s = String(text ?? '');
+        return alignRight.includes(i) ? s.padStart(widths[i]) : s.padEnd(widths[i]);
+    };
+
+    const lines = [headers.map(pad).join('  ')];
+    lines.push(widths.map(w => '-'.repeat(w)).join('  '));
+    for (const row of rows) {
+        lines.push(row.map(pad).join('  '));
+    }
+    return lines;
 }
 
 // Select words to practice using Beta-Binomial model
@@ -293,17 +318,32 @@ async function displayWordStats(words, wordResults) {
     }
     
     // Display statistics (single block, matching the pre-test view)
-    const lines = [];
-    for (const word of uniqueWords) {
+    const lines = ['=== RESULTS ==='];
+    const rows = uniqueWords.map(word => {
         const before = wordStats[word] || { successes: 0, failures: 0 };
         const delta = testStats[word] || { successes: 0, failures: 0 };
         const after = {
             successes: before.successes + delta.successes,
             failures: before.failures + delta.failures
         };
+        const n = after.successes + after.failures;
+        const errRate = n > 0 ? after.failures / n : null;
 
-        lines.push(`'${word}': [${before.successes}, ${before.failures}] + [${delta.successes}, ${delta.failures}] → [${after.successes}, ${after.failures}]`);
-    }
+        return [
+            word,
+            `${delta.successes}/${delta.successes + delta.failures}`,
+            `[${before.successes}, ${before.failures}]`,
+            `[${after.successes}, ${after.failures}]`,
+            String(n),
+            errRate === null ? '-' : (errRate * 100).toFixed(0) + '%'
+        ];
+    });
+
+    lines.push(...formatTable(
+        ['word', 'this test', 'before', 'after', 'n', 'err%'],
+        rows,
+        [1, 2, 3, 4, 5]
+    ));
 
     const statLine = document.createElement('div');
     statLine.classList.add('stat-line');
@@ -519,6 +559,7 @@ class TypingTest {
         }
 
         // Options
+        lines.push('=== OPTIONS ===');
         for (const [key, val] of Object.entries(OPTIONS)) {
             lines.push(`${key}: ${val}`);
         }
@@ -527,12 +568,34 @@ class TypingTest {
         // Word stats
         const wordStats = await getWordStats();
         const uniqueWords = [...new Set(this.words.map(w => w.toLowerCase()))];
-        
-        for (const word of uniqueWords) {
+
+        lines.push('=== WORDS ===');
+        const rows = uniqueWords.map(word => {
             const stats = wordStats[word] || { successes: 0, failures: 0 };
-            const interest = getWordInterest(OPTIONS, word, stats);
-            lines.push(`'${word}': [${stats.successes}, ${stats.failures}] interest=${interest.toExponential(2)}`);
-        }
+            const n = stats.successes + stats.failures;
+            const errRate = n > 0 ? stats.failures / n : null;
+            const freq = WORDS[word];
+            const interest = getWordInterest(OPTIONS, word, stats, false);
+
+            return [
+                word,
+                String(word.length),
+                String(stats.successes),
+                String(stats.failures),
+                String(n),
+                errRate === null ? '-' : (errRate * 100).toFixed(0) + '%',
+                freq === undefined ? '-' : freq.toExponential(1),
+                interest.toExponential(2)
+            ];
+        });
+
+        lines.push(...formatTable(
+            ['word', 'len', 'ok', 'err', 'n', 'err%', 'freq', 'interest'],
+            rows,
+            [1, 2, 3, 4, 5, 6, 7]
+        ));
+        lines.push('');
+        lines.push('(interest shown without the random factor)');
         
         const statLine = document.createElement('div');
         statLine.classList.add('stat-line');
