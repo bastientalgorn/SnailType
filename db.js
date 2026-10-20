@@ -307,4 +307,30 @@ async function saveMixedTargetedCount(count) {
     await saveSetting('mixedTargetedCount', sanitized);
 }
 
-export { initDB, db, getSetting, saveSetting, loadModes, saveModes, loadActiveMode, saveActiveMode, loadMixedTargetedCount, saveMixedTargetedCount, sanitizeOptions, sanitizeModes, DEFAULT_MODES, DEFAULT_MIXED_TARGETED_COUNT, OPTION_FIELDS };
+// Load mixed mode progress (which segment and how many tests done in it)
+async function loadMixedProgress() {
+    try {
+        const progress = await getSetting('mixedProgress');
+        if (progress && typeof progress === 'object') {
+            const segmentIndex = Number(progress.segmentIndex);
+            const testsDoneInSegment = Number(progress.testsDoneInSegment);
+            return {
+                segmentIndex: Number.isInteger(segmentIndex) && segmentIndex >= 0 ? segmentIndex : 0,
+                testsDoneInSegment: Number.isInteger(testsDoneInSegment) && testsDoneInSegment >= 0 ? testsDoneInSegment : 0
+            };
+        }
+    } catch (e) {
+        console.error('Failed to load mixedProgress:', e);
+    }
+    return { segmentIndex: 0, testsDoneInSegment: 0 };
+}
+
+// Save mixed mode progress
+async function saveMixedProgress(segmentIndex, testsDoneInSegment) {
+    await saveSetting('mixedProgress', {
+        segmentIndex: Math.max(0, Math.floor(segmentIndex) || 0),
+        testsDoneInSegment: Math.max(0, Math.floor(testsDoneInSegment) || 0)
+    });
+}
+
+export { initDB, db, getSetting, saveSetting, loadModes, saveModes, loadActiveMode, saveActiveMode, loadMixedTargetedCount, saveMixedTargetedCount, loadMixedProgress, saveMixedProgress, sanitizeOptions, sanitizeModes, DEFAULT_MODES, DEFAULT_MIXED_TARGETED_COUNT, OPTION_FIELDS };

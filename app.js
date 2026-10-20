@@ -1,5 +1,5 @@
 import { WORDS } from './words.js';
-import { initDB, loadModes, saveModes, loadActiveMode, saveActiveMode, DEFAULT_MODES } from './db.js';
+import { initDB, loadModes, saveModes, loadActiveMode, saveActiveMode, loadMixedProgress, saveMixedProgress, DEFAULT_MODES } from './db.js';
 import { initSlowMode } from './slow.js';
 
 // Get current options (will be set after DB init)
@@ -653,6 +653,7 @@ function advanceMixed() {
         mixedTestsDoneInSegment = 0;
         mixedSegmentIndex = (mixedSegmentIndex + 1) % mixedPlaylist.length;
     }
+    saveMixedProgress(mixedSegmentIndex, mixedTestsDoneInSegment).catch(e => console.error('Failed to save mixed progress:', e));
     applyMixedSegment();
 }
 
@@ -774,20 +775,22 @@ async function init() {
         console.error('Failed to init DB:', e);
     }
     
+    let startupKey = null;
     try {
         // Load options from active mode in DB
         const modes = await loadModes();
-        const activeKey = await loadActiveMode();
-        if (modes[activeKey]) {
-            OPTIONS = modes[activeKey].options;
+        startupKey = await loadActiveMode();
+        if (modes[startupKey]) {
+            OPTIONS = modes[startupKey].options || OPTIONS;
         }
     } catch (e) {
         console.error('Failed to load modes:', e);
     }
-    
+
     typingTest = new TypingTest();
     const test = typingTest;
-    test.startNewTest();
+    // Note: the actual test/mode is started at the end of init(), once the
+    // mode buttons exist, so that slow/mixed can be restored correctly.
     
     // Setup debug button
     const debugBtn = document.getElementById('debug-btn');
@@ -841,6 +844,7 @@ async function init() {
         slowBtn.addEventListener('click', async () => {
             if (isSlowModeActive) return; // already in slow mode
             if (isMixedModeActive) stopMixedMode();
+            await saveActiveMode('slow');
             modeButtonsContainer.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
             slowBtn.classList.add('active');
             // Pick first word from current selection
@@ -851,8 +855,9 @@ async function init() {
         modeButtonsContainer.appendChild(slowBtn);
 
         // Mixed button (only if 'mixed' key exists in modes) — full-width, below the row
+        let mixedBtn = null;
         if (modes['mixed']) {
-            const mixedBtn = document.createElement('button');
+            mixedBtn = document.createElement('button');
             mixedBtn.classList.add('mode-btn', 'mode-btn-wide');
             mixedBtn.textContent = 'Mixed';
             mixedBtn.addEventListener('click', async () => {
@@ -862,14 +867,47 @@ async function init() {
                 const playlist = buildMixedPlaylist(freshModes);
                 if (playlist.length === 0) return;
                 stopMixedMode();
+                await saveActiveMode('mixed');
+                // Clicking Mixed explicitly restarts the rotation from the beginning
+                await saveMixedProgress(0, 0);
                 isMixedModeActive = true;
                 mixedPlaylist = playlist;
+                mixedSegmentIndex = 0;
+                mixedTestsDoneInSegment = 0;
                 modeButtonsContainer.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
                 mixedBtn.classList.add('active');
                 applyMixedSegment();
             });
             modeButtonsContainer.appendChild(mixedBtn);
         }
+
+        // --- Restore the previously active mode ---
+        if (startupKey === 'mixed' && mixedBtn) {
+            const playlist = buildMixedPlaylist(modes);
+            if (playlist.length > 0) {
+                const progress = await loadMixedProgress();
+                isMixedModeActive = true;
+                mixedPlaylist = playlist;
+                // Clamp in case the playlist shrank since last session
+                mixedSegmentIndex = progress.segmentIndex % playlist.length;
+                const segCount = playlist[mixedSegmentIndex].mode.options.mixedModeCount || 1;
+                mixedTestsDoneInSegment = Math.min(progress.testsDoneInSegment, segCount - 1);
+                modeButtonsContainer.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                mixedBtn.classList.add('active');
+                applyMixedSegment();
+            } else {
+                test.startNewTest();
+            }
+        } else if (startupKey === 'slow') {
+            modeButtonsContainer.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            slowBtn.classList.add('active');
+            const words = await selectWordsToPractice(1, OPTIONS.minWordLength, OPTIONS.maxWordLength);
+            enterSlowMode((words[0] || 'company').toLowerCase());
+        } else {
+            test.startNewTest();
+        }
+    } else {
+        test.startNewTest();
     }
 }
 
