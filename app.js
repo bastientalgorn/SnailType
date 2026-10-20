@@ -595,7 +595,6 @@ class TypingTest {
             [1, 2, 3, 4, 5, 6, 7]
         ));
         lines.push('');
-        lines.push('(interest shown without the random factor)');
         
         const statLine = document.createElement('div');
         statLine.classList.add('stat-line');
