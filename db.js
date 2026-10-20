@@ -4,6 +4,25 @@ const DB_VERSION = 2;
 let db;
 
 const DEFAULT_MODES = {
+    "sprint": {
+        name: "Sprint",
+        options: {
+            minWordLength: 3,
+            maxWordLength: 20,
+            numWords: 25,
+            repetition: 1,
+            minWpm: 60,
+            allowError: true,
+            maxTestRepeat: 1,
+            wpmReduction: 0,
+            useFrequency: true,
+            useErrorRate: false,
+            favorNewWords: true,
+            capitalize: 'no',
+            normalizeErrorByLength: false,
+            mixedModeCount: 1
+        }
+    },
     "general": {
         name: "General",
         options: {
@@ -38,7 +57,26 @@ const DEFAULT_MODES = {
             useErrorRate: true,
             favorNewWords: false,
             capitalize: 'no',
-            normalizeErrorByLength: true,
+            normalizeErrorByLength: false,
+            mixedModeCount: 5
+        }
+    },
+    "drill": {
+        name: "Drill",
+        options: {
+            minWordLength: 3,
+            maxWordLength: 20,
+            numWords: 1,
+            repetition: 10,
+            minWpm: 80,
+            allowError: false,
+            maxTestRepeat: 10,
+            wpmReduction: 5,
+            useFrequency: false,
+            useErrorRate: true,
+            favorNewWords: false,
+            capitalize: 'no',
+            normalizeErrorByLength: false,
             mixedModeCount: 5
         }
     },
@@ -57,7 +95,7 @@ const DEFAULT_MODES = {
             useErrorRate: true,
             favorNewWords: false,
             capitalize: 'no',
-            normalizeErrorByLength: true,
+            normalizeErrorByLength: false,
             mixedModeCount: 1
         }
     },
@@ -141,7 +179,7 @@ function sanitizeOptions(options) {
 }
 
 // Canonical key order — always enforced after sanitization
-const MODE_ORDER = ['general', 'targeted', 'slow', 'mixed'];
+const MODE_ORDER = ['sprint', 'general', 'targeted', 'drill', 'slow', 'mixed'];
 
 // Validate and sanitize a full modes object. Always returns a valid modes dict.
 function sanitizeModes(modes) {
@@ -154,7 +192,7 @@ function sanitizeModes(modes) {
     let count = 0;
 
     for (const [key, mode] of Object.entries(modes)) {
-        if (count >= 4) break;
+        if (count >= MODE_ORDER.length) break;
         if (!mode || typeof mode !== 'object') continue;
 
         const name = (typeof mode.name === 'string' && mode.name.trim() !== '')

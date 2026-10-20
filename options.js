@@ -22,7 +22,7 @@ const OPTION_UI = {
 async function buildTable() {
     const container = document.getElementById('modes-table-container');
     const modes = await loadModes();
-    // Show Targeted, General, and Slow columns (exclude Mixed)
+    // One column per mode (exclude Mixed, which has no options of its own)
     const modeKeys = Object.keys(modes).filter(k => k !== 'mixed');
 
     const table = document.createElement('table');
