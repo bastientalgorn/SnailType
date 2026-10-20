@@ -320,7 +320,7 @@ async function displayWordStats(words, wordResults) {
 const BLOCKED_KEYS = new Set([
     'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
     'Home', 'End', 'PageUp', 'PageDown',
-    'Delete', 'Tab', 'Enter'
+    'Delete', 'Enter'
 ]);
 
 // Ctrl/Cmd combos that would corrupt the typed text (select-all, cut, paste,
@@ -337,6 +337,7 @@ class TypingTest {
         this.words = [];
         this.currentWpmThreshold = OPTIONS.minWpm;
         this.attemptCount = 0;
+        this.tabbingAway = false;
         
         this.inputElement = document.getElementById('typing-input');
         this.resultsElement = document.getElementById('results');
@@ -351,6 +352,13 @@ class TypingTest {
 
         // Filter keys that would move the caret or edit mid-string
         this.inputElement.addEventListener('keydown', (e) => {
+            // Tab is allowed through so the page stays keyboard-navigable.
+            // Flag it so the blur handler below doesn't steal focus back.
+            if (e.key === 'Tab') {
+                this.tabbingAway = true;
+                return;
+            }
+
             if (BLOCKED_KEYS.has(e.key)) {
                 e.preventDefault();
                 return;
@@ -378,7 +386,11 @@ class TypingTest {
         };
         this.inputElement.addEventListener('click', pinCaret);
         this.inputElement.addEventListener('select', pinCaret);
-        this.inputElement.addEventListener('focus', pinCaret);
+        this.inputElement.addEventListener('focus', () => {
+            // Clear a stale Tab flag (e.g. Tab pressed with nowhere to move to)
+            this.tabbingAway = false;
+            pinCaret();
+        });
         this.inputElement.addEventListener('mouseup', pinCaret);
 
         // Focus input when clicking anywhere on the page (except buttons, links and debug display)
@@ -392,6 +404,11 @@ class TypingTest {
         // Keep input focused, but not when the user is selecting text in the debug display
         document.addEventListener('blur', (e) => {
             if (e.target === this.inputElement) {
+                // The user pressed Tab: let focus move on normally.
+                if (this.tabbingAway) {
+                    this.tabbingAway = false;
+                    return;
+                }
                 setTimeout(() => {
                     const debugDisplay = document.getElementById('debug-display');
                     if (debugDisplay && debugDisplay.contains(document.activeElement)) return;
