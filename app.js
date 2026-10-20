@@ -148,7 +148,10 @@ function getWordInterest(options, word, stats) {
         const frequency = WORDS[word] || 1;
         p = p * frequency;
     }
-    
+
+    // Randomize
+    p = p * Math.random(); 
+
     return p;
 }
 
@@ -259,6 +262,12 @@ function displayTargetText(targetText, typedText, charEverWrong) {
             charIndex++;
         }
     }
+
+    // Purely visual trailing space: not part of targetText, never typed
+    const trailingSpace = document.createElement('span');
+    trailingSpace.classList.add('char', 'space-char', 'pending', 'trailing-space');
+    trailingSpace.innerHTML = '&nbsp;';
+    targetDiv.appendChild(trailingSpace);
 }
 
 // Display word statistics
