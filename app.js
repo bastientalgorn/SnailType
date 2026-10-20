@@ -868,12 +868,13 @@ async function init() {
                 if (playlist.length === 0) return;
                 stopMixedMode();
                 await saveActiveMode('mixed');
-                // Clicking Mixed explicitly restarts the rotation from the beginning
-                await saveMixedProgress(0, 0);
+                // Resume the rotation where it was left off
+                const progress = await loadMixedProgress();
                 isMixedModeActive = true;
                 mixedPlaylist = playlist;
-                mixedSegmentIndex = 0;
-                mixedTestsDoneInSegment = 0;
+                mixedSegmentIndex = progress.segmentIndex % playlist.length;
+                const segCount = playlist[mixedSegmentIndex].mode.options.mixedModeCount || 1;
+                mixedTestsDoneInSegment = Math.min(progress.testsDoneInSegment, segCount - 1);
                 modeButtonsContainer.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
                 mixedBtn.classList.add('active');
                 applyMixedSegment();
