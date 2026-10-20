@@ -339,16 +339,19 @@ const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta', 'CapsLock']);
 function formatKeyForLog(e) {
     const isPrintable = e.key.length === 1;
 
+    // Backspace is by far the most common non-printable key, so keep it short
+    const name = e.key === 'Backspace' ? 'BS' : e.key.toLowerCase();
+
     const modifiers = [];
     if (e.ctrlKey) modifiers.push('ctrl');
     if (e.metaKey) modifiers.push('cmd');
     if (e.altKey) modifiers.push('alt');
 
     if (modifiers.length > 0) {
-        return `<${modifiers.join('+')}+${e.key.toLowerCase()}>`;
+        return `<${modifiers.join('+')}+${name}>`;
     }
 
-    return isPrintable ? e.key : `<${e.key.toLowerCase()}>`;
+    return isPrintable ? e.key : `<${name}>`;
 }
 
 // Run typing test
