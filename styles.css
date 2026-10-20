@@ -498,22 +498,25 @@ main {
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 10px;
+    table-layout: fixed;
 }
 
 .modes-table th {
-    padding: 10px;
+    padding: 10px 5px;
     text-align: center;
     color: #4CAF50;
-    font-size: 1rem;
+    font-size: 0.95rem;
     border-bottom: 2px solid #555;
+    width: 90px;
 }
 
 .modes-table th:first-child {
     text-align: left;
+    width: auto;
 }
 
 .modes-table td {
-    padding: 6px 10px;
+    padding: 6px 5px;
     vertical-align: middle;
     text-align: right;
 }
@@ -529,7 +532,7 @@ main {
 .option-label-cell {
     color: #ccc;
     font-size: 0.9rem;
-    white-space: nowrap;
+    white-space: normal;
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -538,6 +541,8 @@ main {
 .option-label-cell .option-desc {
     font-size: 0.7rem;
     color: #888;
+    white-space: normal;
+    line-height: 1.3;
 }
 
 .mode-input {
@@ -548,7 +553,8 @@ main {
     background-color: #1a1a1a;
     color: #fff;
     font-family: 'Courier New', monospace;
-    width: 100px;
+    width: 70px;
+    max-width: 100%;
     box-sizing: border-box;
 }
 

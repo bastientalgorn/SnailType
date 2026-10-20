@@ -17,7 +17,7 @@ const DEFAULT_MODES = {
             wpmReduction: 0,
             useFrequency: true,
             useErrorRate: false,
-            favorNewWords: true,
+            favorNewWords: false,
             capitalize: 'no',
             normalizeErrorByLength: false,
             mixedModeCount: 1
@@ -39,7 +39,7 @@ const DEFAULT_MODES = {
             favorNewWords: true,
             capitalize: 'no',
             normalizeErrorByLength: false,
-            mixedModeCount: 1
+            mixedModeCount: 2
         }
     },
     "targeted": {
