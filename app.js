@@ -333,45 +333,22 @@ const BLOCKED_CTRL_KEYS = new Set(['a', 'x', 'v', 'z', 'y']);
 // Modifier keys that are logged as part of a combo rather than on their own
 const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta', 'CapsLock']);
 
-// Human-readable labels for non-printable keys, for the keystroke log
-const KEY_LABELS = {
-    'Backspace': 'back',
-    'ArrowLeft': 'left',
-    'ArrowRight': 'right',
-    'ArrowUp': 'up',
-    'ArrowDown': 'down',
-    'Enter': 'enter',
-    'Tab': 'tab',
-    'Delete': 'del',
-    'Home': 'home',
-    'End': 'end',
-    'PageUp': 'pgup',
-    'PageDown': 'pgdn',
-    'Escape': 'esc',
-    ' ': ' '
-};
-
 // Render a keydown event as a compact string for the keystroke log.
-// Printable characters appear as-is; everything else as <name>.
+// Printable characters appear as-is; everything else uses the browser's own
+// KeyboardEvent.key name in brackets, e.g. <backspace>, <arrowleft>.
 function formatKeyForLog(e) {
-    const parts = [];
-    if (e.ctrlKey) parts.push('ctrl');
-    if (e.metaKey) parts.push('cmd');
-    if (e.altKey) parts.push('alt');
-
-    const label = KEY_LABELS[e.key];
     const isPrintable = e.key.length === 1;
 
-    if (parts.length > 0) {
-        // A modifier combo is always shown in bracket form
-        parts.push(label !== undefined && !isPrintable ? label : e.key.toLowerCase());
-        return `<${parts.join('+')}>`;
+    const modifiers = [];
+    if (e.ctrlKey) modifiers.push('ctrl');
+    if (e.metaKey) modifiers.push('cmd');
+    if (e.altKey) modifiers.push('alt');
+
+    if (modifiers.length > 0) {
+        return `<${modifiers.join('+')}+${e.key.toLowerCase()}>`;
     }
 
-    if (e.key === ' ') return ' ';
-    if (label !== undefined) return `<${label}>`;
-    if (isPrintable) return e.key;
-    return `<${e.key.toLowerCase()}>`;
+    return isPrintable ? e.key : `<${e.key.toLowerCase()}>`;
 }
 
 // Run typing test
