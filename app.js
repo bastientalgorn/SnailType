@@ -308,6 +308,25 @@ async function displayWordStats(words, wordResults) {
     }
 }
 
+// Keys that are blocked while typing a test.
+//
+// The test engine assumes the typed text is append-only: handleInput() treats
+// the last character of the input as "the character just typed" and indexes
+// charEverWrong by absolute position. Anything that moves the caret or edits
+// mid-string breaks that invariant, so those keys are suppressed.
+//
+// Printable characters are deliberately NOT filtered against the target text:
+// a wrong keystroke must register as an error, that's the point of the app.
+const BLOCKED_KEYS = new Set([
+    'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+    'Home', 'End', 'PageUp', 'PageDown',
+    'Delete', 'Tab', 'Enter'
+]);
+
+// Ctrl/Cmd combos that would corrupt the typed text (select-all, cut, paste,
+// undo, redo). Everything else (Ctrl+R, Ctrl+T, devtools, ...) is left alone.
+const BLOCKED_CTRL_KEYS = new Set(['a', 'x', 'v', 'z', 'y']);
+
 // Run typing test
 class TypingTest {
     constructor() {
@@ -328,7 +347,40 @@ class TypingTest {
     setupEventListeners() {
         this.inputElement.addEventListener('input', (e) => this.handleInput(e));
         this.inputElement.addEventListener('paste', (e) => e.preventDefault());
-        
+        this.inputElement.addEventListener('drop', (e) => e.preventDefault());
+
+        // Filter keys that would move the caret or edit mid-string
+        this.inputElement.addEventListener('keydown', (e) => {
+            if (BLOCKED_KEYS.has(e.key)) {
+                e.preventDefault();
+                return;
+            }
+
+            // Ctrl/Cmd + A/X/V/Z/Y
+            if ((e.ctrlKey || e.metaKey) && BLOCKED_CTRL_KEYS.has(e.key.toLowerCase())) {
+                e.preventDefault();
+                return;
+            }
+
+            // Delete-word-backwards (Ctrl/Alt/Cmd + Backspace)
+            if (e.key === 'Backspace' && (e.ctrlKey || e.metaKey || e.altKey)) {
+                e.preventDefault();
+            }
+        });
+
+        // A mouse click or drag-select can also move the caret, so pin it to the
+        // end whenever the selection changes.
+        const pinCaret = () => {
+            const end = this.inputElement.value.length;
+            if (this.inputElement.selectionStart !== end || this.inputElement.selectionEnd !== end) {
+                this.inputElement.setSelectionRange(end, end);
+            }
+        };
+        this.inputElement.addEventListener('click', pinCaret);
+        this.inputElement.addEventListener('select', pinCaret);
+        this.inputElement.addEventListener('focus', pinCaret);
+        this.inputElement.addEventListener('mouseup', pinCaret);
+
         // Focus input when clicking anywhere on the page (except buttons, links and debug display)
         document.addEventListener('click', (e) => {
             if (!e.target.matches('button, a, .debug-btn, .info-link') &&
@@ -437,8 +489,21 @@ class TypingTest {
     }
     
     handleInput(e) {
+        const previous = this.typedText;
         this.typedText = e.target.value;
-        
+
+        // Safety net: the engine requires append-only edits at the end of the
+        // string. If anything produced a mid-string edit (IME, mobile autofill,
+        // an unblocked shortcut), reject it and restore the previous value.
+        const isAppend = this.typedText.startsWith(previous);
+        const isTruncation = previous.startsWith(this.typedText);
+        if (!isAppend && !isTruncation) {
+            this.typedText = previous;
+            this.inputElement.value = previous;
+            this.inputElement.setSelectionRange(previous.length, previous.length);
+            return;
+        }
+
         // Ignore leading space
         if (this.typedText.length === 1 && this.typedText[0] === ' ') {
             this.inputElement.value = '';
