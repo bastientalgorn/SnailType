@@ -713,12 +713,14 @@ class TypingTest {
                 this.typedText = '';
                 this.startTime = null;
                 this.charEverWrong = new Set();
+                this.keyLog = [];
                 this.inputElement.value = '';
                 this.inputElement.disabled = false;
                 this.inputElement.focus();
                 this.resultsElement.innerHTML = '';
                 this.resultsElement.className = 'results';
                 displayTargetText(this.targetText, this.typedText, this.charEverWrong);
+                this.renderKeyLog();
             }, 300);
         } else {
             // Normal mode or test passed: wait for Enter key to proceed
@@ -743,12 +745,14 @@ class TypingTest {
                             this.typedText = '';
                             this.startTime = null;
                             this.charEverWrong = new Set();
+                            this.keyLog = [];
                             this.inputElement.value = '';
                             this.inputElement.disabled = false;
                             this.inputElement.focus();
                             this.resultsElement.innerHTML = '';
                             this.resultsElement.className = 'results';
                             displayTargetText(this.targetText, this.typedText, this.charEverWrong);
+                            this.renderKeyLog();
                         }
                     }
                 }
