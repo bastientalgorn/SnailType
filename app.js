@@ -220,8 +220,30 @@ async function updateWordStats(words, wordResults) {
     }
 }
 
-// Display target text with 4-state coloring
-function displayTargetText(targetText, typedText, charEverWrong) {
+// Number of errors on a single letter at which the hint reaches full red
+const HINT_MAX_ERRORS = 4;
+
+// Colour for a letter that has been mistyped `count` times in previous
+// attempts: white (no errors) -> yellow -> red (several errors).
+function errorHintColor(count) {
+    const t = Math.min(count / HINT_MAX_ERRORS, 1);
+    let g = 255;
+    let b = 255;
+    if (t < 0.5) {
+        // white -> yellow: drop the blue channel
+        b = Math.round(255 * (1 - t * 2));
+    } else {
+        // yellow -> red: drop the green channel
+        b = 0;
+        g = Math.round(255 * (2 - t * 2));
+    }
+    return `rgb(255, ${g}, ${b})`;
+}
+
+// Display target text with 4-state coloring.
+// `hintCounts` maps a lowercased word to a per-letter array of error counts,
+// used to tint not-yet-typed letters that were mistyped earlier.
+function displayTargetText(targetText, typedText, charEverWrong, hintCounts = {}) {
     const targetDiv = document.getElementById('target-text');
     targetDiv.innerHTML = '';
     
@@ -234,6 +256,7 @@ function displayTargetText(targetText, typedText, charEverWrong) {
         wordSpan.classList.add('word');
         
         // Add characters of the word
+        const wordHints = hintCounts[word.toLowerCase()];
         for (let i = 0; i < word.length; i++) {
             const span = document.createElement('span');
             span.classList.add('char');
@@ -251,6 +274,11 @@ function displayTargetText(targetText, typedText, charEverWrong) {
                 }
             } else {
                 span.classList.add('pending');
+                // Hint: tint letters that were mistyped in earlier attempts
+                const errors = wordHints ? wordHints[i] : 0;
+                if (errors > 0) {
+                    span.style.color = errorHintColor(errors);
+                }
             }
             
             span.textContent = char;
@@ -409,6 +437,9 @@ class TypingTest {
         this.attemptCount = 0;
         this.tabbingAway = false;
         this.keyLog = [];  // [{ text, blocked }] keystrokes for the debug panel
+        // word (lowercased) -> per-letter error counts, accumulated across the
+        // attempts of the current test and used to colour hints on retries
+        this.wordErrorCounts = {};
         
         this.inputElement = document.getElementById('typing-input');
         this.resultsElement = document.getElementById('results');
@@ -504,6 +535,57 @@ class TypingTest {
         }, true);
     }
     
+    // Walk the word occurrences of the current attempt and record, for each
+    // fully-typed occurrence, the index of its FIRST mistyped letter.
+    // Returns { word: number[] } with one entry per letter index.
+    collectAttemptErrorCounts() {
+        const counts = {};
+        let charIndex = 0;
+
+        for (const word of this.words) {
+            const end = charIndex + word.length;
+
+            // Only count occurrences the user has already typed through,
+            // otherwise a word would be scored before it has been attempted.
+            if (this.typedText.length >= end) {
+                for (let i = 0; i < word.length; i++) {
+                    if (this.charEverWrong.has(charIndex + i)) {
+                        const key = word.toLowerCase();
+                        if (!counts[key]) counts[key] = new Array(word.length).fill(0);
+                        counts[key][i]++;
+                        break;  // only the first mistake of this occurrence
+                    }
+                }
+            }
+
+            charIndex = end + 1;  // +1 for the space
+        }
+
+        return counts;
+    }
+
+    // Merge `source` error counts into `target` (mutates target)
+    static mergeErrorCounts(target, source) {
+        for (const [word, letters] of Object.entries(source)) {
+            if (!target[word]) target[word] = new Array(letters.length).fill(0);
+            letters.forEach((n, i) => { target[word][i] += n; });
+        }
+        return target;
+    }
+
+    // Hints = errors from previous attempts + those of the attempt in progress,
+    // so a repeated word is already tinted later in the same run.
+    getHintCounts() {
+        const combined = {};
+        TypingTest.mergeErrorCounts(combined, this.wordErrorCounts);
+        TypingTest.mergeErrorCounts(combined, this.collectAttemptErrorCounts());
+        return combined;
+    }
+
+    renderTarget() {
+        displayTargetText(this.targetText, this.typedText, this.charEverWrong, this.getHintCounts());
+    }
+
     // Render the keystroke log at the top of the debug panel.
     // Rebuilt on demand because the debug panel is cleared on each redraw.
     renderKeyLog() {
@@ -637,6 +719,7 @@ class TypingTest {
         this.currentWpmThreshold = OPTIONS.minWpm;
         this.attemptCount = 0;
         this.keyLog = [];
+        this.wordErrorCounts = {};
         
         this.inputElement.value = '';
         this.inputElement.disabled = false;
@@ -644,7 +727,7 @@ class TypingTest {
         this.resultsElement.innerHTML = '';
         this.resultsElement.className = 'results';
         
-        displayTargetText(this.targetText, this.typedText, this.charEverWrong);
+        this.renderTarget();
         
         // Display initial word statistics (before test)
         await this.displayInitialWordStats();
@@ -695,7 +778,7 @@ class TypingTest {
             }
         }
         
-        displayTargetText(this.targetText, this.typedText, this.charEverWrong);
+        this.renderTarget();
         
         // Check if test is complete
         if (this.typedText.length === this.targetText.length && this.typedText === this.targetText) {
@@ -778,6 +861,9 @@ class TypingTest {
             
             // Brief delay before resetting
             setTimeout(() => {
+                // Fold this attempt's mistakes into the hint totals first:
+                // collecting depends on typedText/charEverWrong, cleared below.
+                TypingTest.mergeErrorCounts(this.wordErrorCounts, this.collectAttemptErrorCounts());
                 this.typedText = '';
                 this.startTime = null;
                 this.charEverWrong = new Set();
@@ -787,7 +873,7 @@ class TypingTest {
                 this.inputElement.focus();
                 this.resultsElement.innerHTML = '';
                 this.resultsElement.className = 'results';
-                displayTargetText(this.targetText, this.typedText, this.charEverWrong);
+                this.renderTarget();
                 this.renderKeyLog();
             }, 300);
         } else {
@@ -810,6 +896,9 @@ class TypingTest {
                             }
                             
                             // Reset for retry
+                            // Fold this attempt's mistakes into the hint totals
+                            // before the state they depend on is cleared.
+                            TypingTest.mergeErrorCounts(this.wordErrorCounts, this.collectAttemptErrorCounts());
                             this.typedText = '';
                             this.startTime = null;
                             this.charEverWrong = new Set();
@@ -819,7 +908,7 @@ class TypingTest {
                             this.inputElement.focus();
                             this.resultsElement.innerHTML = '';
                             this.resultsElement.className = 'results';
-                            displayTargetText(this.targetText, this.typedText, this.charEverWrong);
+                            this.renderTarget();
                             this.renderKeyLog();
                         }
                     }
