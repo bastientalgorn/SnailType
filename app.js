@@ -123,6 +123,47 @@ async function addMistypedChar(char) {
     await saveMistypedChars(mistypedChars);
 }
 
+// Per-character attempt/error totals, used for the "error rate per letter"
+// stat. Stored in the mistypedChars store under a separate key so no schema
+// change is needed. Unlike mistypedChars these are lifetime totals.
+async function getCharStats() {
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['mistypedChars'], 'readonly');
+        const store = transaction.objectStore('mistypedChars');
+        const request = store.get('charStats');
+
+        request.onsuccess = () => {
+            const result = request.result;
+            resolve({
+                attempts: result?.attempts || {},
+                errors: result?.errors || {}
+            });
+        };
+        request.onerror = () => reject(request.error);
+    });
+}
+
+// Merge per-character tallies from one test into the stored lifetime totals
+async function mergeCharStats(attempts, errors) {
+    if (Object.keys(attempts).length === 0) return;
+
+    const stored = await getCharStats();
+    for (const [char, n] of Object.entries(attempts)) {
+        stored.attempts[char] = (stored.attempts[char] || 0) + n;
+    }
+    for (const [char, n] of Object.entries(errors)) {
+        stored.errors[char] = (stored.errors[char] || 0) + n;
+    }
+
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['mistypedChars'], 'readwrite');
+        const store = transaction.objectStore('mistypedChars');
+        const request = store.put({ id: 'charStats', attempts: stored.attempts, errors: stored.errors });
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+}
+
 // Calculate word interest score based on options and word stats.
 // `randomize` is disabled by the debug panel so it can show the deterministic
 // score (the random factor would differ from the one used during selection).
@@ -440,6 +481,10 @@ class TypingTest {
         // word (lowercased) -> per-letter error counts, accumulated across the
         // attempts of the current test and used to colour hints on retries
         this.wordErrorCounts = {};
+        // Per-character attempt/error tallies for the current test, flushed to
+        // the DB when the test completes
+        this.charAttempts = {};
+        this.charErrors = {};
         
         this.inputElement = document.getElementById('typing-input');
         this.resultsElement = document.getElementById('results');
@@ -720,6 +765,8 @@ class TypingTest {
         this.attemptCount = 0;
         this.keyLog = [];
         this.wordErrorCounts = {};
+        this.charAttempts = {};
+        this.charErrors = {};
         
         this.inputElement.value = '';
         this.inputElement.disabled = false;
@@ -771,7 +818,17 @@ class TypingTest {
         if (this.typedText.length > 0 && this.typedText.length <= this.targetText.length) {
             const currentIndex = this.typedText.length - 1;
             const isCorrect = this.typedText[currentIndex] === this.targetText[currentIndex];
-            
+            const expected = this.targetText[currentIndex];
+
+            // Only count a new keystroke, not the re-check that happens when
+            // backspace shortens the text back onto an already-typed index.
+            if (this.typedText.length > previous.length) {
+                this.charAttempts[expected] = (this.charAttempts[expected] || 0) + 1;
+                if (!isCorrect) {
+                    this.charErrors[expected] = (this.charErrors[expected] || 0) + 1;
+                }
+            }
+
             if (!isCorrect) {
                 this.charEverWrong.add(currentIndex);
                 addMistypedChar(this.targetText[currentIndex]);
@@ -851,6 +908,12 @@ class TypingTest {
         
         // Update statistics
         await updateWordStats(this.words, wordResults);
+
+        // Flush per-character tallies for this attempt, then reset them so a
+        // retry doesn't double-count what has already been stored.
+        await mergeCharStats(this.charAttempts, this.charErrors);
+        this.charAttempts = {};
+        this.charErrors = {};
         
         // Check if slow mode (numWords = 1)
         const isSlowMode = OPTIONS.numWords === 1;

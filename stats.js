@@ -88,6 +88,24 @@ async function getMistypedChars() {
     });
 }
 
+// Get lifetime per-character attempt/error totals
+async function getCharStats() {
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['mistypedChars'], 'readonly');
+        const store = transaction.objectStore('mistypedChars');
+        const request = store.get('charStats');
+
+        request.onsuccess = () => {
+            const result = request.result;
+            resolve({
+                attempts: result?.attempts || {},
+                errors: result?.errors || {}
+            });
+        };
+        request.onerror = () => reject(request.error);
+    });
+}
+
 // Display character error distribution
 async function displayCharDistribution() {
     const mistypedChars = await getMistypedChars();
@@ -473,10 +491,12 @@ async function displayWordProblems() {
 async function exportData() {
     const wordStats = await getWordStats();
     const mistypedChars = await getMistypedChars();
+    const charStats = await getCharStats();
     
     const data = {
         words: wordStats,
-        mistyped_chars: mistypedChars
+        mistyped_chars: mistypedChars,
+        char_stats: charStats
     };
     
     const dataStr = JSON.stringify(data, null, 4);
@@ -667,6 +687,157 @@ async function displayWordTable() {
     renderTable(wordData, currentSort.column, currentSort.ascending);
 }
 
+// Display per-character error rate: of all the times a character was typed,
+// what share of those keystrokes were wrong.
+async function displayCharErrorRate() {
+    const { attempts, errors } = await getCharStats();
+    const container = document.getElementById('char-error-rate');
+
+    // Ignore characters with too few samples: a single miss out of 2 tries
+    // would otherwise show up as a 50% error rate.
+    const MIN_ATTEMPTS = 10;
+
+    const stats = Object.entries(attempts)
+        .filter(([, n]) => n >= MIN_ATTEMPTS)
+        .map(([char, n]) => ({
+            char,
+            attempts: n,
+            errors: errors[char] || 0,
+            percentage: ((errors[char] || 0) / n) * 100
+        }))
+        .sort((a, b) => b.percentage - a.percentage)
+        .slice(0, 20);
+
+    if (stats.length === 0) {
+        container.innerHTML = `<p class="empty-state">Not enough data yet — each character needs at least ${MIN_ATTEMPTS} attempts. Keep practicing!</p>`;
+        return;
+    }
+
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const make = (tag, attrs) => {
+        const el = document.createElementNS(SVG_NS, tag);
+        for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+        return el;
+    };
+
+    const chartWidth = 800;
+    const barHeight = 25;
+    const padding = { top: 20, right: 110, bottom: 40, left: 60 };
+    const chartHeight = padding.top + padding.bottom + (stats.length * barHeight);
+    const plotWidth = chartWidth - padding.left - padding.right;
+    const maxPercentage = Math.max(...stats.map(s => s.percentage));
+
+    container.innerHTML = '';
+    const svg = make('svg', { width: chartWidth, height: chartHeight });
+    svg.classList.add('char-chart');
+
+    stats.forEach((stat, i) => {
+        const barWidth = maxPercentage > 0 ? (stat.percentage / maxPercentage) * plotWidth : 0;
+        const y = padding.top + i * barHeight;
+        const displayChar = stat.char === ' ' ? '⎵' : stat.char;
+
+        const rect = make('rect', {
+            x: padding.left,
+            y: y + 2,
+            width: barWidth,
+            height: barHeight - 4,
+            fill: '#ff9800',
+            opacity: '0.8',
+            'data-char': displayChar,
+            'data-percentage': stat.percentage.toFixed(2),
+            'data-count': `${stat.errors}/${stat.attempts}`
+        });
+        rect.classList.add('chart-bar');
+        svg.appendChild(rect);
+
+        const label = make('text', {
+            x: padding.left - 10,
+            y: y + barHeight / 2 + 5,
+            'text-anchor': 'end',
+            fill: '#ffffff',
+            'font-size': '14',
+            'font-family': 'Courier New, monospace'
+        });
+        label.textContent = `'${displayChar}'`;
+        svg.appendChild(label);
+
+        const valueLabel = make('text', {
+            x: padding.left + barWidth + 5,
+            y: y + barHeight / 2 + 5,
+            'text-anchor': 'start',
+            fill: '#ffffff',
+            'font-size': '12'
+        });
+        valueLabel.textContent = `${stat.percentage.toFixed(1)}%  (${stat.errors}/${stat.attempts})`;
+        svg.appendChild(valueLabel);
+    });
+
+    svg.appendChild(make('line', {
+        x1: padding.left, y1: padding.top,
+        x2: padding.left, y2: chartHeight - padding.bottom,
+        stroke: '#666', 'stroke-width': '2'
+    }));
+    svg.appendChild(make('line', {
+        x1: padding.left, y1: chartHeight - padding.bottom,
+        x2: chartWidth - padding.right, y2: chartHeight - padding.bottom,
+        stroke: '#666', 'stroke-width': '2'
+    }));
+
+    const xLabel = make('text', {
+        x: chartWidth / 2,
+        y: chartHeight - 10,
+        'text-anchor': 'middle',
+        fill: '#999',
+        'font-size': '14'
+    });
+    xLabel.textContent = 'Error Rate (%)';
+    svg.appendChild(xLabel);
+
+    const numTicks = 5;
+    for (let i = 0; i <= numTicks; i++) {
+        const x = padding.left + (plotWidth / numTicks) * i;
+        svg.appendChild(make('line', {
+            x1: x, y1: chartHeight - padding.bottom,
+            x2: x, y2: chartHeight - padding.bottom + 5,
+            stroke: '#666', 'stroke-width': '1'
+        }));
+        const tickLabel = make('text', {
+            x, y: chartHeight - padding.bottom + 20,
+            'text-anchor': 'middle',
+            fill: '#999',
+            'font-size': '12'
+        });
+        tickLabel.textContent = ((maxPercentage / numTicks) * i).toFixed(1);
+        svg.appendChild(tickLabel);
+    }
+
+    container.appendChild(svg);
+
+    // Tooltip
+    const tooltip = document.createElement('div');
+    tooltip.classList.add('chart-tooltip');
+    tooltip.style.display = 'none';
+    container.appendChild(tooltip);
+
+    svg.querySelectorAll('.chart-bar').forEach(bar => {
+        bar.addEventListener('mouseenter', (e) => {
+            tooltip.innerHTML = `<strong>'${e.target.getAttribute('data-char')}'</strong><br>` +
+                `${e.target.getAttribute('data-percentage')}% wrong (${e.target.getAttribute('data-count')})`;
+            tooltip.style.display = 'block';
+            e.target.setAttribute('opacity', '1');
+        });
+        bar.addEventListener('mousemove', (e) => {
+            const rect = container.getBoundingClientRect();
+            tooltip.style.left = `${e.clientX - rect.left + 15}px`;
+            tooltip.style.top = `${e.clientY - rect.top + 15}px`;
+        });
+        bar.addEventListener('mouseleave', (e) => {
+            tooltip.style.display = 'none';
+            e.target.setAttribute('opacity', '0.8');
+        });
+    });
+}
+
 // Initialize page
 async function init() {
     try {
@@ -676,6 +847,7 @@ async function init() {
         return;
     }
     await displayCharDistribution();
+    await displayCharErrorRate();
     await displayWordProblems();
     await displayWordTable();
     

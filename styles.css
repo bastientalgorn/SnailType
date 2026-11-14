@@ -488,6 +488,13 @@ main {
     padding: 20px;
 }
 
+/* Short explanation under a stats section heading */
+.section-hint {
+    color: #999;
+    font-size: 0.85rem;
+    margin: -10px 0 15px 0;
+}
+
 /* Options page styles */
 .options-compact {
     padding: 20px;
