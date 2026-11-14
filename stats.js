@@ -88,22 +88,52 @@ async function getMistypedChars() {
     });
 }
 
-// Get lifetime per-character attempt/error totals
-async function getCharStats() {
+// Per-character typing history: each character maps to a bitfield of its last
+// CHAR_WINDOW keystrokes ('1' correct, '0' mistyped), so the error rate
+// reflects recent performance rather than a lifetime average.
+const CHAR_WINDOW = 1000;
+
+async function getCharResults() {
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(['mistypedChars'], 'readonly');
         const store = transaction.objectStore('mistypedChars');
         const request = store.get('charStats');
 
         request.onsuccess = () => {
-            const result = request.result;
-            resolve({
-                attempts: result?.attempts || {},
-                errors: result?.errors || {}
-            });
+            const record = request.result;
+
+            if (record?.results && typeof record.results === 'object') {
+                resolve({ ...record.results });
+                return;
+            }
+
+            // Legacy cumulative format: rebuild an approximate bitfield
+            const results = {};
+            const attempts = record?.attempts || {};
+            const errors = record?.errors || {};
+            for (const [char, n] of Object.entries(attempts)) {
+                const total = Math.min(n, CHAR_WINDOW);
+                const fails = Math.min(Math.round(((errors[char] || 0) / n) * total), total);
+                results[char] = '1'.repeat(total - fails) + '0'.repeat(fails);
+            }
+            resolve(results);
         };
         request.onerror = () => reject(request.error);
     });
+}
+
+// Get per-character attempt/error counts over the rolling window
+async function getCharStats() {
+    const results = await getCharResults();
+    const attempts = {};
+    const errors = {};
+    for (const [char, bits] of Object.entries(results)) {
+        attempts[char] = bits.length;
+        let fails = 0;
+        for (const b of bits) if (b === '0') fails++;
+        errors[char] = fails;
+    }
+    return { attempts, errors };
 }
 
 // Display character error distribution

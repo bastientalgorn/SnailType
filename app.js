@@ -123,42 +123,78 @@ async function addMistypedChar(char) {
     await saveMistypedChars(mistypedChars);
 }
 
-// Per-character attempt/error totals, used for the "error rate per letter"
-// stat. Stored in the mistypedChars store under a separate key so no schema
-// change is needed. Unlike mistypedChars these are lifetime totals.
-async function getCharStats() {
+// Per-character typing history, used for the "error rate per character" stat.
+// Stored in the mistypedChars store under a separate key so no schema change
+// is needed. Each character maps to a bitfield of its last CHAR_WINDOW
+// keystrokes ('1' = typed correctly, '0' = mistyped), so the stat reflects
+// recent performance rather than a lifetime average.
+const CHAR_WINDOW = 1000;
+
+// Read the raw per-character record, migrating the older cumulative
+// {attempts, errors} format to bitfields on the way.
+async function getCharResults() {
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(['mistypedChars'], 'readonly');
         const store = transaction.objectStore('mistypedChars');
         const request = store.get('charStats');
 
         request.onsuccess = () => {
-            const result = request.result;
-            resolve({
-                attempts: result?.attempts || {},
-                errors: result?.errors || {}
-            });
+            const record = request.result;
+
+            if (record?.results && typeof record.results === 'object') {
+                resolve({ ...record.results });
+                return;
+            }
+
+            // Legacy format: rebuild an approximate bitfield from the totals.
+            // Order within the window is unknown, so successes are placed
+            // before failures; only the ratio is meaningful.
+            const results = {};
+            const attempts = record?.attempts || {};
+            const errors = record?.errors || {};
+            for (const [char, n] of Object.entries(attempts)) {
+                const total = Math.min(n, CHAR_WINDOW);
+                const fails = Math.min(Math.round(((errors[char] || 0) / n) * total), total);
+                results[char] = '1'.repeat(total - fails) + '0'.repeat(fails);
+            }
+            resolve(results);
         };
         request.onerror = () => reject(request.error);
     });
 }
 
-// Merge per-character tallies from one test into the stored lifetime totals
-async function mergeCharStats(attempts, errors) {
-    if (Object.keys(attempts).length === 0) return;
-
-    const stored = await getCharStats();
-    for (const [char, n] of Object.entries(attempts)) {
-        stored.attempts[char] = (stored.attempts[char] || 0) + n;
+// Collapse bitfields into { attempts, errors } counts per character
+function summarizeCharResults(results) {
+    const attempts = {};
+    const errors = {};
+    for (const [char, bits] of Object.entries(results)) {
+        attempts[char] = bits.length;
+        let fails = 0;
+        for (const b of bits) if (b === '0') fails++;
+        errors[char] = fails;
     }
-    for (const [char, n] of Object.entries(errors)) {
-        stored.errors[char] = (stored.errors[char] || 0) + n;
+    return { attempts, errors };
+}
+
+async function getCharStats() {
+    return summarizeCharResults(await getCharResults());
+}
+
+// Append this test's per-character outcomes, keeping only the last
+// CHAR_WINDOW keystrokes for each character.
+async function mergeCharStats(outcomes) {
+    if (Object.keys(outcomes).length === 0) return;
+
+    const stored = await getCharResults();
+    for (const [char, bits] of Object.entries(outcomes)) {
+        const updated = (stored[char] || '') + bits;
+        stored[char] = updated.length > CHAR_WINDOW ? updated.slice(-CHAR_WINDOW) : updated;
     }
 
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(['mistypedChars'], 'readwrite');
         const store = transaction.objectStore('mistypedChars');
-        const request = store.put({ id: 'charStats', attempts: stored.attempts, errors: stored.errors });
+        const request = store.put({ id: 'charStats', results: stored });
         request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);
     });
@@ -481,10 +517,9 @@ class TypingTest {
         // word (lowercased) -> per-letter error counts, accumulated across the
         // attempts of the current test and used to colour hints on retries
         this.wordErrorCounts = {};
-        // Per-character attempt/error tallies for the current test, flushed to
-        // the DB when the test completes
-        this.charAttempts = {};
-        this.charErrors = {};
+        // Per-character outcomes for the current test ('1' correct, '0'
+        // mistyped), in typing order. Flushed to the DB when the test completes.
+        this.charOutcomes = {};
         
         this.inputElement = document.getElementById('typing-input');
         this.resultsElement = document.getElementById('results');
@@ -788,8 +823,7 @@ class TypingTest {
         this.attemptCount = 0;
         this.keyLog = [];
         this.wordErrorCounts = {};
-        this.charAttempts = {};
-        this.charErrors = {};
+        this.charOutcomes = {};
         
         this.inputElement.value = '';
         this.inputElement.disabled = false;
@@ -846,10 +880,7 @@ class TypingTest {
             // Only count a new keystroke, not the re-check that happens when
             // backspace shortens the text back onto an already-typed index.
             if (this.typedText.length > previous.length) {
-                this.charAttempts[expected] = (this.charAttempts[expected] || 0) + 1;
-                if (!isCorrect) {
-                    this.charErrors[expected] = (this.charErrors[expected] || 0) + 1;
-                }
+                this.charOutcomes[expected] = (this.charOutcomes[expected] || '') + (isCorrect ? '1' : '0');
             }
 
             if (!isCorrect) {
@@ -932,11 +963,10 @@ class TypingTest {
         // Update statistics
         await updateWordStats(this.words, wordResults);
 
-        // Flush per-character tallies for this attempt, then reset them so a
+        // Flush per-character outcomes for this attempt, then reset them so a
         // retry doesn't double-count what has already been stored.
-        await mergeCharStats(this.charAttempts, this.charErrors);
-        this.charAttempts = {};
-        this.charErrors = {};
+        await mergeCharStats(this.charOutcomes);
+        this.charOutcomes = {};
         
         // Check if slow mode (numWords = 1)
         const isSlowMode = OPTIONS.numWords === 1;
