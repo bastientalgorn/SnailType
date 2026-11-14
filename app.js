@@ -528,10 +528,13 @@ class TypingTest {
                 return;
             }
 
-            // Delete-word-backwards (Ctrl/Alt/Cmd + Backspace)
+            // Delete-word-backwards (Ctrl/Alt/Cmd + Backspace).
+            // Handled manually rather than left to the browser: the native
+            // behaviour can select/replace text in ways the append-only engine
+            // rejects, so we compute the truncation ourselves.
             if (e.key === 'Backspace' && (e.ctrlKey || e.metaKey || e.altKey)) {
-                if (logEntry) logEntry.blocked = true;
                 e.preventDefault();
+                this.deleteWordBackwards();
             }
 
             if (logEntry) this.renderKeyLog();
@@ -580,6 +583,26 @@ class TypingTest {
         }, true);
     }
     
+    // Delete back to the start of the current word (Ctrl/Alt/Cmd + Backspace).
+    // Trailing spaces are consumed first, then the word before them — matching
+    // the usual behaviour of text inputs.
+    deleteWordBackwards() {
+        if (this.typedText.length === 0) return;
+
+        let end = this.typedText.length;
+        while (end > 0 && this.typedText[end - 1] === ' ') end--;
+        while (end > 0 && this.typedText[end - 1] !== ' ') end--;
+
+        this.typedText = this.typedText.slice(0, end);
+        this.inputElement.value = this.typedText;
+        this.inputElement.setSelectionRange(end, end);
+
+        // charEverWrong is intentionally left untouched: a letter that was
+        // mistyped stays flagged as "corrected" once retyped, exactly as it
+        // does for a plain backspace.
+        this.renderTarget();
+    }
+
     // Walk the word occurrences of the current attempt and record, for each
     // fully-typed occurrence, the index of its FIRST mistyped letter.
     // Returns { word: number[] } with one entry per letter index.
