@@ -1,4 +1,4 @@
-import { initDB, loadModes, saveModes, loadKeymap, saveKeymap, DEFAULT_MODES, DEFAULT_KEYMAP, KEYMAP_ROWS, KEYMAP_COLS, OPTION_FIELDS, sanitizeOptions } from './db.js';
+import { initDB, loadModes, saveModes, loadKeymap, saveKeymap, findMissingLetters, DEFAULT_MODES, DEFAULT_KEYMAP, KEYMAP_ROWS, KEYMAP_COLS, OPTION_FIELDS, sanitizeOptions } from './db.js';
 
 // UI labels and descriptions for option fields (extends the schema from db.js)
 const OPTION_UI = {
@@ -172,17 +172,29 @@ async function buildKeymap() {
             input.dataset.row = r;
             input.dataset.col = c;
             input.classList.add('keymap-key');
+            if (!input.value) input.classList.add('keymap-empty');
             // Visually separate the left and right hands
             if (c === 5) input.classList.add('keymap-gap');
+
+            const markEmpty = () => input.classList.toggle('keymap-empty', input.value === '');
 
             // Typing a character advances to the next key, wrapping to the next row
             input.addEventListener('input', () => {
                 input.value = input.value.trim().slice(0, 1).toLowerCase();
+                markEmpty();
+                validateKeymap();
                 if (input.value) focusKey(flatIndex + 1);
             });
 
             input.addEventListener('keydown', (e) => {
-                if (e.key === 'Backspace' && input.value === '') {
+                if (e.key === ' ' || e.key === 'Delete') {
+                    // Blank this key out and move on
+                    e.preventDefault();
+                    input.value = '';
+                    markEmpty();
+                    validateKeymap();
+                    focusKey(flatIndex + 1);
+                } else if (e.key === 'Backspace' && input.value === '') {
                     // Already empty: step back to the previous key
                     e.preventDefault();
                     focusKey(flatIndex - 1);
@@ -206,6 +218,20 @@ async function buildKeymap() {
         }
         container.appendChild(rowDiv);
     }
+    validateKeymap();
+}
+
+// Show which letters are missing from the grid. Returns true when valid.
+function validateKeymap() {
+    const warning = document.getElementById('keymap-warning');
+    const missing = findMissingLetters(readKeymapValues());
+    if (warning) {
+        warning.textContent = missing.length
+            ? `Missing letter${missing.length > 1 ? 's' : ''}: ${missing.join(' ')}`
+            : '';
+        warning.classList.toggle('visible', missing.length > 0);
+    }
+    return missing.length === 0;
 }
 
 // Read the keymap grid into a 3x10 array
@@ -253,6 +279,11 @@ async function init() {
     }
 
     document.getElementById('save-btn').addEventListener('click', async () => {
+        if (!validateKeymap()) {
+            const missing = findMissingLetters(readKeymapValues());
+            showToast(`Cannot save: keymap is missing ${missing.join(' ')}`);
+            return;
+        }
         const modes = await readTableValues();
         await saveModes(modes);  // saveModes sanitizes before saving
         await saveKeymap(readKeymapValues());

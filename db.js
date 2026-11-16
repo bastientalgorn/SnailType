@@ -80,6 +80,25 @@ const DEFAULT_MODES = {
             mixedModeCount: 5
         }
     },
+    "chords": {
+        name: "Chords",
+        options: {
+            minWordLength: 3,
+            maxWordLength: 20,
+            numWords: 1,
+            repetition: 10,
+            minWpm: 80,
+            allowError: false,
+            maxTestRepeat: 10,
+            wpmReduction: 5,
+            useFrequency: false,
+            useErrorRate: true,
+            favorNewWords: false,
+            capitalize: 'no',
+            normalizeErrorByLength: false,
+            mixedModeCount: 5
+        }
+    },
     "slow": {
         name: "Slow",
         options: {
@@ -179,7 +198,7 @@ function sanitizeOptions(options) {
 }
 
 // Canonical key order — always enforced after sanitization
-const MODE_ORDER = ['sprint', 'general', 'targeted', 'drill', 'slow', 'mixed'];
+const MODE_ORDER = ['sprint', 'general', 'targeted', 'drill', 'chords', 'slow', 'mixed'];
 
 // Validate and sanitize a full modes object. Always returns a valid modes dict.
 function sanitizeModes(modes) {
@@ -384,19 +403,42 @@ const DEFAULT_KEYMAP = [
     ['z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/']
 ];
 
-// Ensure a keymap is always a 3x10 grid of single characters
+// Ensure a keymap is always a 3x10 grid of single characters.
+// Empty cells are allowed and preserved; only missing cells fall back to QWERTY.
 function sanitizeKeymap(keymap) {
     const result = [];
     for (let r = 0; r < KEYMAP_ROWS; r++) {
         const row = [];
         for (let c = 0; c < KEYMAP_COLS; c++) {
             const raw = Array.isArray(keymap) && Array.isArray(keymap[r]) ? keymap[r][c] : undefined;
-            const value = typeof raw === 'string' ? raw.trim() : '';
-            row.push(value ? value.slice(0, 1).toLowerCase() : DEFAULT_KEYMAP[r][c]);
+            if (typeof raw === 'string') {
+                // A deliberate blank stays blank
+                const value = raw.trim();
+                row.push(value ? value.slice(0, 1).toLowerCase() : '');
+            } else {
+                row.push(DEFAULT_KEYMAP[r][c]);
+            }
         }
         result.push(row);
     }
     return result;
+}
+
+// Check a keymap contains every letter of the alphabet at least once.
+// Duplicates are allowed. Returns the sorted list of missing letters.
+function findMissingLetters(keymap) {
+    const present = new Set();
+    for (const row of sanitizeKeymap(keymap)) {
+        for (const char of row) {
+            if (char) present.add(char);
+        }
+    }
+    const missing = [];
+    for (let i = 0; i < 26; i++) {
+        const letter = String.fromCharCode(97 + i);
+        if (!present.has(letter)) missing.push(letter);
+    }
+    return missing;
 }
 
 // Load keymap — always returns a valid 3x10 grid
@@ -410,9 +452,16 @@ async function loadKeymap() {
     return JSON.parse(JSON.stringify(DEFAULT_KEYMAP));
 }
 
-// Save keymap — sanitizes before saving
+// Save keymap — sanitizes before saving.
+// Rejects a keymap that is missing letters so the layout always covers a-z.
 async function saveKeymap(keymap) {
+    const missing = findMissingLetters(keymap);
+    if (missing.length > 0) {
+        const error = new Error(`Keymap is missing: ${missing.join(', ')}`);
+        error.missingLetters = missing;
+        throw error;
+    }
     await saveSetting('keymap', sanitizeKeymap(keymap));
 }
 
-export { initDB, db, getSetting, saveSetting, loadModes, saveModes, loadActiveMode, saveActiveMode, loadMixedTargetedCount, saveMixedTargetedCount, loadMixedProgress, saveMixedProgress, loadKeymap, saveKeymap, sanitizeKeymap, sanitizeOptions, sanitizeModes, DEFAULT_MODES, DEFAULT_MIXED_TARGETED_COUNT, DEFAULT_KEYMAP, KEYMAP_ROWS, KEYMAP_COLS, OPTION_FIELDS };
+export { initDB, db, getSetting, saveSetting, loadModes, saveModes, loadActiveMode, saveActiveMode, loadMixedTargetedCount, saveMixedTargetedCount, loadMixedProgress, saveMixedProgress, loadKeymap, saveKeymap, sanitizeKeymap, findMissingLetters, sanitizeOptions, sanitizeModes, DEFAULT_MODES, DEFAULT_MIXED_TARGETED_COUNT, DEFAULT_KEYMAP, KEYMAP_ROWS, KEYMAP_COLS, OPTION_FIELDS };

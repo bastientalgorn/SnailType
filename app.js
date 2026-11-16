@@ -1,5 +1,5 @@
 import { WORDS } from './words.js';
-import { initDB, loadModes, saveModes, loadActiveMode, saveActiveMode, loadMixedProgress, saveMixedProgress, DEFAULT_MODES } from './db.js';
+import { initDB, loadModes, saveModes, loadActiveMode, saveActiveMode, loadMixedProgress, saveMixedProgress, loadKeymap, DEFAULT_MODES, DEFAULT_KEYMAP } from './db.js';
 import { initSlowMode } from './slow.js';
 
 // Get current options (will be set after DB init)
@@ -255,6 +255,59 @@ function formatTable(headers, rows, alignRight = []) {
         lines.push(row.map(pad).join('  '));
     }
     return lines;
+}
+
+// --- Finger usage -----------------------------------------------------------
+// Maps each keymap column to a finger. Columns 0-4 are the left hand and 5-9
+// the right hand; the index fingers each cover two columns (4 and 5).
+const COLUMN_FINGER = [
+    'L-pinky', 'L-ring', 'L-middle', 'L-index', 'L-index',
+    'R-index', 'R-index', 'R-middle', 'R-ring', 'R-pinky'
+];
+
+// Active keyboard layout, loaded from the options (defaults to QWERTY).
+let KEYMAP = DEFAULT_KEYMAP;
+
+// char -> finger name, rebuilt whenever the keymap changes
+let CHAR_TO_FINGER = {};
+
+function rebuildCharToFinger() {
+    CHAR_TO_FINGER = {};
+    for (let r = 0; r < KEYMAP.length; r++) {
+        for (let c = 0; c < KEYMAP[r].length; c++) {
+            const char = KEYMAP[r][c];
+            // Blank cells are positions the layout doesn't use
+            if (char) CHAR_TO_FINGER[char] = COLUMN_FINGER[c];
+        }
+    }
+}
+
+rebuildCharToFinger();
+
+// Which finger types a given character, or null if it isn't in the keymap
+function getFingerForChar(char) {
+    return CHAR_TO_FINGER[String(char).toLowerCase()] || null;
+}
+
+// How many distinct fingers a word uses.
+// Characters that aren't in the keymap are ignored.
+function countFingers(word) {
+    const fingers = new Set();
+    for (const char of String(word).toLowerCase()) {
+        const finger = CHAR_TO_FINGER[char];
+        if (finger) fingers.add(finger);
+    }
+    return fingers.size;
+}
+
+// The set of distinct fingers a word uses (useful for same-hand / chord logic)
+function getFingersForWord(word) {
+    const fingers = new Set();
+    for (const char of String(word).toLowerCase()) {
+        const finger = CHAR_TO_FINGER[char];
+        if (finger) fingers.add(finger);
+    }
+    return fingers;
 }
 
 // Select words to practice using Beta-Binomial model
@@ -765,6 +818,7 @@ class TypingTest {
             return [
                 word,
                 String(word.length),
+                String(countFingers(word)),
                 String(stats.successes),
                 String(stats.failures),
                 String(n),
@@ -775,9 +829,9 @@ class TypingTest {
         });
 
         lines.push(...formatTable(
-            ['word', 'len', 'ok', 'err', 'n', 'err%', 'freq', 'interest'],
+            ['word', 'len', 'fing', 'ok', 'err', 'n', 'err%', 'freq', 'interest'],
             rows,
-            [1, 2, 3, 4, 5, 6, 7]
+            [1, 2, 3, 4, 5, 6, 7, 8]
         ));
         lines.push('');
         
@@ -1221,6 +1275,14 @@ async function init() {
         }
     } catch (e) {
         console.error('Failed to load modes:', e);
+    }
+
+    try {
+        // Load the user's keyboard layout so finger counts reflect it
+        KEYMAP = await loadKeymap();
+        rebuildCharToFinger();
+    } catch (e) {
+        console.error('Failed to load keymap:', e);
     }
 
     typingTest = new TypingTest();

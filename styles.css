@@ -534,6 +534,25 @@ main {
     border-color: #4CAF50;
 }
 
+/* An intentionally blank key */
+.keymap-key.keymap-empty {
+    background-color: #1f1f1f;
+    border-color: #3a3a3a;
+}
+
+/* Warning shown when the layout doesn't cover the whole alphabet */
+.keymap-warning {
+    display: none;
+    color: #f44336;
+    font-size: 0.85rem;
+    font-family: 'Courier New', monospace;
+    margin: -10px 0 20px 0;
+}
+
+.keymap-warning.visible {
+    display: block;
+}
+
 /* Gap between the left and right hands */
 .keymap-key.keymap-gap {
     margin-left: 24px;
