@@ -501,7 +501,7 @@ main {
 .keymap-heading {
     color: #4CAF50;
     font-size: 1.1rem;
-    margin: 30px 0 10px 0;
+    margin: 0 0 10px 0;
 }
 
 .keymap-grid {
@@ -534,7 +534,7 @@ main {
 /* Row of controls above the keymap grid */
 .keymap-toolbar {
     display: flex;
-    justify-content: center;
+    justify-content: flex-end;
     margin-bottom: 14px;
 }
 

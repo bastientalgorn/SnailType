@@ -1261,7 +1261,7 @@ function enterSlowMode(word) {
 
     // Reset status/counter text
     const slowStatus = document.getElementById('slowStatus');
-    if (slowStatus) { slowStatus.textContent = 'Start typing when ready...'; slowStatus.className = 'slow-status'; }
+    if (slowStatus) { slowStatus.textContent = ''; slowStatus.className = 'slow-status'; }
     const slowCounter = document.getElementById('slowCounter');
     if (slowCounter) slowCounter.textContent = '0 reps';
     const timingDisplay = document.getElementById('timingDisplay');
@@ -1270,7 +1270,7 @@ function enterSlowMode(word) {
     currentSlowCleanup = initSlowMode({
         word: word,
         initialWpm: 12,
-        targetWpm: 30,
+        targetWpm: 50,
         ballId: 'ball',
         wordDisplayId: 'wordDisplay',
         statusId: 'slowStatus',

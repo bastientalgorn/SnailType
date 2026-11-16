@@ -189,7 +189,7 @@ function applyKeymapShape(shape) {
 
     const btn = document.getElementById('keymap-shape-btn');
     // The button shows what it will switch to, not the current state
-    if (btn) btn.textContent = shape === 'staggered' ? 'Show ortholinear' : 'Show staggered';
+    if (btn) btn.textContent = shape === 'staggered' ? 'Ortholinear' : 'Staggered';
 }
 
 // Build the 3x10 keymap grid
@@ -315,19 +315,9 @@ function showToast(message) {
 async function init() {
     try {
         await initDB();
-        const modes = await loadModes();
-        // Debug: dump modes
-        const debugDiv = document.getElementById('debug-output');
-        if (debugDiv) {
-            debugDiv.textContent = JSON.stringify(modes, null, 2);
-        }
         await buildTable();
         await buildKeymap();
     } catch (e) {
-        const debugDiv = document.getElementById('debug-output');
-        if (debugDiv) {
-            debugDiv.textContent = 'ERROR: ' + e.message + '\n' + e.stack;
-        }
         console.error('Options init error:', e);
     }
 
