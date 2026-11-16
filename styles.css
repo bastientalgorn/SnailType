@@ -13,7 +13,7 @@ body {
 }
 
 .container {
-    max-width: 900px;
+    max-width: 1080px;
     margin: 0 auto;
     padding: 20px;
 }
@@ -46,10 +46,11 @@ header > div {
     flex-basis: 100%;
     min-width: unset;
     width: 100%;
+    padding: 10px 30px;
 }
 
 .mode-btn {
-    padding: 10px 30px;
+    padding: 10px 20px;
     font-size: 1rem;
     font-family: 'Courier New', monospace;
     border: 2px solid #4CAF50;
@@ -58,7 +59,7 @@ header > div {
     color: #4CAF50;
     cursor: pointer;
     transition: all 0.3s ease;
-    min-width: 140px;
+    min-width: 105px;
 }
 
 .mode-btn:hover {
