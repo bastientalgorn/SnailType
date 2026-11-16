@@ -521,14 +521,14 @@ main {
    to the one above, mimicking a traditional keyboard. Purely cosmetic. */
 /* Staggered display: each row is shifted right by a third of a key relative
    to the one above, mimicking a traditional keyboard. Purely cosmetic.
-   translateX is used rather than a margin so the rows stay centred as a block.
-   One third of the 44px key pitch (38px key + 6px gap) is ~14.7px. */
-.keymap-grid.keymap-staggered .keymap-row:nth-child(2) {
-    transform: translateX(14.7px);
+   Centred on the home row: the top row moves left and the bottom row right,
+   by one third of the 44px key pitch (38px key + 6px gap), i.e. ~14.7px. */
+.keymap-grid.keymap-staggered .keymap-row:nth-child(1) {
+    transform: translateX(-14.7px);
 }
 
 .keymap-grid.keymap-staggered .keymap-row:nth-child(3) {
-    transform: translateX(29.4px);
+    transform: translateX(14.7px);
 }
 
 /* Row of controls above the keymap grid */
