@@ -113,6 +113,36 @@ async function buildTable() {
     table.appendChild(tbody);
     container.innerHTML = '';
     container.appendChild(table);
+
+    // Autosave: a number input commits on blur/Enter, a select on selection
+    for (const input of table.querySelectorAll('.mode-input')) {
+        input.addEventListener('change', saveOptions);
+    }
+}
+
+// Persist the modes table. Called on every change, so it must be cheap and
+// must not rebuild the table (that would steal focus while editing).
+async function saveOptions() {
+    try {
+        const modes = await readTableValues();
+        await saveModes(modes);  // saveModes sanitizes before saving
+        showToast('Saved');
+    } catch (e) {
+        console.error('Failed to save options:', e);
+        showToast('Could not save options');
+    }
+}
+
+// Persist the keymap, unless it is missing letters
+async function saveKeymapIfValid() {
+    if (!validateKeymap()) return;
+    try {
+        await saveKeymap(readKeymapValues());
+        showToast('Saved');
+    } catch (e) {
+        console.error('Failed to save keymap:', e);
+        showToast('Could not save keyboard layout');
+    }
 }
 
 // Read all values from the table and return modes object
@@ -184,6 +214,7 @@ async function buildKeymap() {
                 input.value = input.value.trim().slice(0, 1).toLowerCase();
                 markEmpty();
                 validateKeymap();
+                saveKeymapIfValid();
                 if (input.value) focusKey(flatIndex + 1);
             });
 
@@ -194,6 +225,7 @@ async function buildKeymap() {
                     input.value = '';
                     markEmpty();
                     validateKeymap();
+                    saveKeymapIfValid();
                     focusKey(flatIndex + 1);
                 } else if (e.key === 'Backspace' && input.value === '') {
                     // Already empty: step back to the previous key
@@ -279,27 +311,13 @@ async function init() {
         console.error('Options init error:', e);
     }
 
-    document.getElementById('save-btn').addEventListener('click', async () => {
-        if (!validateKeymap()) {
-            const missing = findMissingLetters(readKeymapValues());
-            showToast(`Cannot save: keymap is missing ${missing.join(' ')}`);
-            return;
-        }
-        const modes = await readTableValues();
-        await saveModes(modes);  // saveModes sanitizes before saving
-        await saveKeymap(readKeymapValues());
-        await buildTable(); // Refresh to show sanitized values
-        await buildKeymap();
-        // Debug: dump saved modes
-        const debugDiv = document.getElementById('debug-output');
-        if (debugDiv) {
-            const savedModes = await loadModes();
-            debugDiv.textContent = 'SAVED:\n' + JSON.stringify(savedModes, null, 2);
-        }
-        showToast('Options saved!');
-    });
-
     document.getElementById('reset-btn').addEventListener('click', async () => {
+        const ok = window.confirm(
+            'Reset all options and the keyboard layout to their default values?\n\n' +
+            'Your typing statistics will not be affected.'
+        );
+        if (!ok) return;
+
         await saveModes(JSON.parse(JSON.stringify(DEFAULT_MODES)));
         await saveKeymap(JSON.parse(JSON.stringify(DEFAULT_KEYMAP)));
         await buildTable();

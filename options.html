@@ -21,11 +21,14 @@
                 <p class="section-hint">The physical position of each letter key. Used to understand which finger types what.</p>
                 <div id="keymap-grid" class="keymap-grid"></div>
                 <p id="keymap-warning" class="keymap-warning"></p>
-                <div class="options-buttons">
-                    <button id="save-btn" class="export-btn">Save</button>
-                    <button id="reset-btn" class="clear-btn">Reset</button>
-                </div>
             </section>
+
+            <section class="stats-section options-compact danger-section">
+                <h2 class="keymap-heading">Reset</h2>
+                <p class="section-hint">Restore every mode and the keyboard layout to their default values. Your typing statistics are not affected.</p>
+                <button id="reset-btn" class="clear-btn">Reset to Defaults</button>
+            </section>
+
             <pre id="debug-output" style="color: #888; font-size: 0.75rem; margin-top: 20px; white-space: pre-wrap; word-break: break-all;"></pre>
         </main>
     </div>
