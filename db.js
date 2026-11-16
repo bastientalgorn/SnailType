@@ -397,6 +397,36 @@ async function saveMixedProgress(segmentIndex, testsDoneInSegment) {
     });
 }
 
+// --- Sprint history ---------------------------------------------------------
+// One entry per completed Sprint test: { wpm, accuracy } where accuracy is the
+// share of keystrokes typed correctly, in 0..1. Kept in the settings store so
+// no schema change is needed, and capped so the record can't grow without end.
+const SPRINT_RUNS_MAX = 500;
+
+async function loadSprintRuns() {
+    try {
+        const runs = await getSetting('sprintRuns');
+        if (!Array.isArray(runs)) return [];
+        return runs
+            .map(r => ({ wpm: Number(r?.wpm), accuracy: Number(r?.accuracy) }))
+            .filter(r => Number.isFinite(r.wpm) && Number.isFinite(r.accuracy));
+    } catch (e) {
+        console.error('Failed to load sprintRuns:', e);
+        return [];
+    }
+}
+
+// Append one run, dropping the oldest once the cap is reached
+async function addSprintRun(wpm, accuracy) {
+    const runs = await loadSprintRuns();
+    runs.push({ wpm, accuracy });
+    await saveSetting('sprintRuns', runs.slice(-SPRINT_RUNS_MAX));
+}
+
+async function clearSprintRuns() {
+    await saveSetting('sprintRuns', []);
+}
+
 // --- Keymap -----------------------------------------------------------------
 // A 3x10 grid describing the physical layout of the letter keys.
 // Row 0 = top row, row 1 = home row, row 2 = bottom row.
@@ -471,4 +501,4 @@ async function saveKeymap(keymap) {
     await saveSetting('keymap', sanitizeKeymap(keymap));
 }
 
-export { initDB, db, getSetting, saveSetting, loadModes, saveModes, loadActiveMode, saveActiveMode, loadMixedTargetedCount, saveMixedTargetedCount, loadMixedProgress, saveMixedProgress, loadKeymap, saveKeymap, sanitizeKeymap, findMissingLetters, sanitizeOptions, sanitizeModes, DEFAULT_MODES, DEFAULT_MIXED_TARGETED_COUNT, DEFAULT_KEYMAP, KEYMAP_ROWS, KEYMAP_COLS, OPTION_FIELDS };
+export { initDB, db, getSetting, saveSetting, loadModes, saveModes, loadActiveMode, saveActiveMode, loadMixedTargetedCount, saveMixedTargetedCount, loadMixedProgress, saveMixedProgress, loadSprintRuns, addSprintRun, clearSprintRuns, loadKeymap, saveKeymap, sanitizeKeymap, findMissingLetters, sanitizeOptions, sanitizeModes, DEFAULT_MODES, DEFAULT_MIXED_TARGETED_COUNT, DEFAULT_KEYMAP, KEYMAP_ROWS, KEYMAP_COLS, OPTION_FIELDS };

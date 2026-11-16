@@ -1,5 +1,5 @@
 import { WORDS } from './words.js';
-import { initDB, loadModes, saveModes, loadActiveMode, saveActiveMode, loadMixedProgress, saveMixedProgress, loadKeymap, DEFAULT_MODES, DEFAULT_KEYMAP } from './db.js';
+import { initDB, loadModes, saveModes, loadActiveMode, saveActiveMode, loadMixedProgress, saveMixedProgress, loadKeymap, addSprintRun, DEFAULT_MODES, DEFAULT_KEYMAP } from './db.js';
 import { initSlowMode } from './slow.js';
 
 // Get current options (will be set after DB init)
@@ -182,6 +182,18 @@ function summarizeCharResults(results) {
 
 async function getCharStats() {
     return summarizeCharResults(await getCharResults());
+}
+
+// Share of keystrokes typed correctly in a charOutcomes map, in 0..1.
+// Returns null when nothing was typed.
+function keystrokeAccuracy(outcomes) {
+    let correct = 0;
+    let total = 0;
+    for (const bits of Object.values(outcomes)) {
+        total += bits.length;
+        for (const b of bits) if (b === '1') correct++;
+    }
+    return total === 0 ? null : correct / total;
 }
 
 // Append this test's per-character outcomes, keeping only the last
@@ -1096,6 +1108,19 @@ class TypingTest {
             await updateWordStats(this.words, wordResults);
             // Flush per-character outcomes for this attempt
             await mergeCharStats(this.charOutcomes);
+        }
+
+        // Sprint is a single pass over a long text, so each run is a meaningful
+        // speed/accuracy sample worth plotting over time.
+        if (ACTIVE_MODE_KEY === 'sprint') {
+            const accuracy = keystrokeAccuracy(this.charOutcomes);
+            if (accuracy !== null) {
+                try {
+                    await addSprintRun(wpm, accuracy);
+                } catch (e) {
+                    console.error('Failed to record sprint run:', e);
+                }
+            }
         }
 
         // Reset either way so a retry doesn't double-count what was stored.

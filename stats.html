@@ -16,6 +16,22 @@
         
         <main>
             <section class="stats-section">
+                <h2>Sprint Progress</h2>
+                <p class="section-hint">Speed and accuracy of every Sprint run, oldest first. WPM is scaled against your best run ever; accuracy against 100%.</p>
+                <div id="sprint-history" class="sprint-chart">
+                    <p class="empty-state">No sprint runs recorded yet.</p>
+                </div>
+            </section>
+
+            <section class="stats-section">
+                <h2>Speed vs Accuracy</h2>
+                <p class="section-hint">Each Sprint run as a point. Recent runs are drawn more brightly.</p>
+                <div id="sprint-scatter" class="sprint-chart">
+                    <p class="empty-state">No sprint runs recorded yet.</p>
+                </div>
+            </section>
+
+            <section class="stats-section">
                 <h2>Error Share by Character</h2>
                 <p class="section-hint">Out of every 100 mistakes you make, how many are on each character.</p>
                 <div id="char-distribution" class="char-distribution">

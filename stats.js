@@ -549,13 +549,15 @@ async function clearAllData() {
     }
     
     return new Promise((resolve, reject) => {
-        const transaction = db.transaction(['wordStats', 'mistypedChars'], 'readwrite');
+        const transaction = db.transaction(['wordStats', 'mistypedChars', 'settings'], 'readwrite');
         
         const wordStatsStore = transaction.objectStore('wordStats');
         const mistypedCharsStore = transaction.objectStore('mistypedChars');
         
         wordStatsStore.clear();
         mistypedCharsStore.clear();
+        // Only the sprint history is statistics; the other settings are options
+        transaction.objectStore('settings').delete('sprintRuns');
         
         transaction.oncomplete = () => {
             alert('All data has been cleared!');
@@ -868,6 +870,228 @@ async function displayCharErrorRate() {
     });
 }
 
+// --- Sprint history ---------------------------------------------------------
+// Create an SVG element with the given attributes
+const SVG_NS = 'http://www.w3.org/2000/svg';
+function make(tag, attrs) {
+    const el = document.createElementNS(SVG_NS, tag);
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+    return el;
+}
+
+// Each completed Sprint test stores { wpm, accuracy } (accuracy in 0..1) under
+// the 'sprintRuns' key of the settings store, written by app.js.
+async function getSprintRuns() {
+    return new Promise((resolve) => {
+        let transaction;
+        try {
+            transaction = db.transaction(['settings'], 'readonly');
+        } catch (e) {
+            // Older databases may not have the settings store yet
+            resolve([]);
+            return;
+        }
+        const request = transaction.objectStore('settings').get('sprintRuns');
+        request.onsuccess = () => {
+            const runs = request.result?.value;
+            if (!Array.isArray(runs)) {
+                resolve([]);
+                return;
+            }
+            resolve(runs
+                .map(r => ({ wpm: Number(r?.wpm), accuracy: Number(r?.accuracy) }))
+                .filter(r => Number.isFinite(r.wpm) && Number.isFinite(r.accuracy)));
+        };
+        request.onerror = () => resolve([]);
+    });
+}
+
+// Build an <svg> with the usual dark-theme axes and return the pieces callers
+// need to place points: the element, the plot box and two value->pixel scales.
+function createPlot({ width, height, padding, xMax, yMax }) {
+    const svg = make('svg', { width, height });
+    svg.classList.add('char-chart');
+
+    const plotWidth = width - padding.left - padding.right;
+    const plotHeight = height - padding.top - padding.bottom;
+    const x0 = padding.left;
+    const y0 = height - padding.bottom;
+
+    // Axes
+    svg.appendChild(make('line', {
+        x1: x0, y1: padding.top, x2: x0, y2: y0, stroke: '#666', 'stroke-width': '2'
+    }));
+    svg.appendChild(make('line', {
+        x1: x0, y1: y0, x2: width - padding.right, y2: y0, stroke: '#666', 'stroke-width': '2'
+    }));
+
+    return {
+        svg,
+        x: v => x0 + (xMax > 0 ? (v / xMax) * plotWidth : 0),
+        y: v => y0 - (yMax > 0 ? (v / yMax) * plotHeight : 0),
+        plotWidth,
+        plotHeight,
+        x0,
+        y0
+    };
+}
+
+// Axis label helper
+function addAxisLabel(svg, text, attrs) {
+    const label = make('text', { fill: '#999', 'font-size': '13', ...attrs });
+    label.textContent = text;
+    svg.appendChild(label);
+}
+
+// Draw a polyline through [{x, y}] pixel points
+function addLine(svg, points, color) {
+    if (points.length < 2) return;
+    svg.appendChild(make('polyline', {
+        points: points.map(p => `${p.x},${p.y}`).join(' '),
+        fill: 'none',
+        stroke: color,
+        'stroke-width': '2'
+    }));
+}
+
+// Speed and accuracy of every Sprint run, in the order they were typed.
+// Two independent scales share the plot: WPM on the left, accuracy on the right.
+async function displaySprintHistory() {
+    const container = document.getElementById('sprint-history');
+    if (!container) return;
+
+    const runs = await getSprintRuns();
+    if (runs.length === 0) {
+        container.innerHTML = '<p class="empty-state">No sprint runs recorded yet. Complete a Sprint test to see your progress!</p>';
+        return;
+    }
+
+    const width = 800;
+    const height = 320;
+    const padding = { top: 20, right: 60, bottom: 50, left: 60 };
+
+    // WPM is scaled against the best run ever, accuracy always against 100%
+    const bestWpm = Math.max(...runs.map(r => r.wpm));
+    const wpmMax = Math.max(bestWpm, 1);
+
+    const plot = createPlot({
+        width, height, padding,
+        xMax: Math.max(runs.length - 1, 1),
+        yMax: 1
+    });
+
+    // Horizontal gridlines, labelled in WPM on the left and % on the right
+    const ticks = 4;
+    for (let i = 0; i <= ticks; i++) {
+        const frac = i / ticks;
+        const y = plot.y(frac);
+        plot.svg.appendChild(make('line', {
+            x1: plot.x0, y1: y, x2: width - padding.right, y2: y,
+            stroke: '#333', 'stroke-width': '1'
+        }));
+        addAxisLabel(plot.svg, (wpmMax * frac).toFixed(0), {
+            x: plot.x0 - 8, y: y + 4, 'text-anchor': 'end', fill: '#4CAF50'
+        });
+        addAxisLabel(plot.svg, `${(frac * 100).toFixed(0)}%`, {
+            x: width - padding.right + 8, y: y + 4, 'text-anchor': 'start', fill: '#2196F3'
+        });
+    }
+
+    // Both series are normalised to 0..1 so they can share the same plot box
+    const wpmPoints = runs.map((r, i) => ({ x: plot.x(i), y: plot.y(r.wpm / wpmMax) }));
+    const accPoints = runs.map((r, i) => ({ x: plot.x(i), y: plot.y(r.accuracy) }));
+
+    addLine(plot.svg, wpmPoints, '#4CAF50');
+    addLine(plot.svg, accPoints, '#2196F3');
+
+    // Dots are only readable for short histories
+    if (runs.length <= 60) {
+        for (const p of wpmPoints) {
+            plot.svg.appendChild(make('circle', { cx: p.x, cy: p.y, r: 3, fill: '#4CAF50' }));
+        }
+        for (const p of accPoints) {
+            plot.svg.appendChild(make('circle', { cx: p.x, cy: p.y, r: 3, fill: '#2196F3' }));
+        }
+    }
+
+    addAxisLabel(plot.svg, `Sprint runs (oldest to newest, ${runs.length} total)`, {
+        x: width / 2, y: height - 12, 'text-anchor': 'middle'
+    });
+
+    container.innerHTML = '';
+    container.appendChild(plot.svg);
+
+    const legend = document.createElement('p');
+    legend.classList.add('section-hint');
+    legend.innerHTML = '<span style="color:#4CAF50">\u25cf WPM</span> &nbsp;&nbsp; ' +
+        '<span style="color:#2196F3">\u25cf Accuracy</span>';
+    container.appendChild(legend);
+}
+
+// Every Sprint run as a point, to show how speed trades off against accuracy
+async function displaySprintScatter() {
+    const container = document.getElementById('sprint-scatter');
+    if (!container) return;
+
+    const runs = await getSprintRuns();
+    if (runs.length === 0) {
+        container.innerHTML = '<p class="empty-state">No sprint runs recorded yet.</p>';
+        return;
+    }
+
+    const width = 800;
+    const height = 360;
+    const padding = { top: 20, right: 30, bottom: 50, left: 60 };
+
+    const wpmMax = Math.max(Math.max(...runs.map(r => r.wpm)), 1);
+
+    const plot = createPlot({ width, height, padding, xMax: 1, yMax: wpmMax });
+
+    // Accuracy rarely drops far, so the x axis still spans the full 0-100%
+    const ticks = 5;
+    for (let i = 0; i <= ticks; i++) {
+        const frac = i / ticks;
+        const x = plot.x(frac);
+        plot.svg.appendChild(make('line', {
+            x1: x, y1: plot.y0, x2: x, y2: plot.y0 + 5, stroke: '#666', 'stroke-width': '1'
+        }));
+        addAxisLabel(plot.svg, `${(frac * 100).toFixed(0)}%`, {
+            x, y: plot.y0 + 20, 'text-anchor': 'middle'
+        });
+
+        const y = plot.y(wpmMax * frac);
+        plot.svg.appendChild(make('line', {
+            x1: plot.x0, y1: y, x2: width - padding.right, y2: y,
+            stroke: '#333', 'stroke-width': '1'
+        }));
+        addAxisLabel(plot.svg, (wpmMax * frac).toFixed(0), {
+            x: plot.x0 - 8, y: y + 4, 'text-anchor': 'end'
+        });
+    }
+
+    // Older runs are faded so the recent ones stand out
+    runs.forEach((r, i) => {
+        plot.svg.appendChild(make('circle', {
+            cx: plot.x(r.accuracy),
+            cy: plot.y(r.wpm),
+            r: 4,
+            fill: '#4CAF50',
+            opacity: (0.25 + 0.75 * (i / Math.max(runs.length - 1, 1))).toFixed(2)
+        }));
+    });
+
+    addAxisLabel(plot.svg, 'Accuracy', {
+        x: width / 2, y: height - 12, 'text-anchor': 'middle'
+    });
+    addAxisLabel(plot.svg, 'WPM', {
+        x: 16, y: height / 2, 'text-anchor': 'middle',
+        transform: `rotate(-90 16 ${height / 2})`
+    });
+
+    container.innerHTML = '';
+    container.appendChild(plot.svg);
+}
+
 // Initialize page
 async function init() {
     try {
@@ -876,6 +1100,8 @@ async function init() {
         console.error('Failed to init DB in stats.js:', e);
         return;
     }
+    await displaySprintHistory();
+    await displaySprintScatter();
     await displayCharDistribution();
     await displayCharErrorRate();
     await displayWordProblems();
