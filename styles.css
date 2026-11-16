@@ -615,11 +615,13 @@ main {
 /* Options page styles */
 .options-compact {
     padding: 20px;
-    /* The mode columns are a fixed 62px each, so the section width determines
-       how much room is left for the option-name column. 723px gives it 249px,
-       50% more than the 166px it had at 640px. */
-    max-width: 723px;
-    margin: 0 auto;
+    /* The mode columns are a fixed 62px each (the last one 93px), so the
+       section width determines how much room is left for the option-name
+       column. 754px gives it 249px. */
+    max-width: 754px;
+    /* `auto` on the sides to centre, but keep the gap between sections that
+       .stats-section provides (a bare `margin: 0 auto` would cancel it) */
+    margin: 0 auto 30px;
 }
 
 /* Modes table */
@@ -643,6 +645,11 @@ main {
 .modes-table th:first-child {
     text-align: left;
     width: auto;
+}
+
+/* Rightmost mode column, given 50% more room than the others */
+.modes-table th:last-child {
+    width: 93px;
 }
 
 .modes-table td {
@@ -819,14 +826,13 @@ select.mode-input {
     font-weight: bold;
 }
 
-/* Metronome Container - Houses the bouncing ball animation */
+/* Metronome Container - Houses the bouncing ball animation.
+   Deliberately transparent: the ball moves straight over the page background. */
 .metronome-container {
     position: relative;
     width: 300px;
     height: 300px;
     margin: 10px auto;
-    background-color: rgba(255, 255, 255, 0.05);
-    border-radius: 10px;
 }
 
 /* Ball - Animated indicator that jumps from letter to letter */
