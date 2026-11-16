@@ -275,6 +275,10 @@ let KEYMAP = DEFAULT_KEYMAP;
 // char -> finger name, rebuilt whenever the keymap changes
 let CHAR_TO_FINGER = {};
 
+// Memoised isEligibleForChords() results, keyed by lowercased word.
+// Invalidated whenever the keymap changes, since the answer depends on it.
+let CHORD_ELIGIBILITY = new Map();
+
 function rebuildCharToFinger() {
     CHAR_TO_FINGER = {};
     for (let r = 0; r < KEYMAP.length; r++) {
@@ -284,6 +288,8 @@ function rebuildCharToFinger() {
             if (char) CHAR_TO_FINGER[char] = COLUMN_FINGER[c];
         }
     }
+    // Cached answers were computed against the previous layout
+    CHORD_ELIGIBILITY.clear();
 }
 
 rebuildCharToFinger();
@@ -314,6 +320,41 @@ function getFingersForWord(word) {
     return fingers;
 }
 
+// A word is eligible for Chords practice if it never asks the same finger to
+// press two keys in a row. Consecutive same-finger keystrokes force a slow
+// lift-and-move, so they can't be typed as a single rolling motion.
+//
+//   "need" -> false: 'e' then 'e' are both the left middle finger
+//   "man"  -> true:  'm' and 'n' share the right index, but 'a' separates them
+//
+// Characters outside the keymap (digits, punctuation, ...) have no finger, so
+// they break the run and are treated as a separator.
+//
+// Results are cached because the whole dictionary is scanned on every word
+// selection; the cache is cleared by rebuildCharToFinger() when the layout
+// changes.
+function isEligibleForChords(word) {
+    const key = String(word).toLowerCase();
+
+    const cached = CHORD_ELIGIBILITY.get(key);
+    if (cached !== undefined) return cached;
+
+    let eligible = true;
+    let previousFinger = null;
+
+    for (const char of key) {
+        const finger = CHAR_TO_FINGER[char] || null;
+        if (finger !== null && finger === previousFinger) {
+            eligible = false;
+            break;
+        }
+        previousFinger = finger;
+    }
+
+    CHORD_ELIGIBILITY.set(key, eligible);
+    return eligible;
+}
+
 // Select words to practice using Beta-Binomial model
 async function selectWordsToPractice(n, minLength, maxLength) {
     const wordStats = await getWordStats();
@@ -321,9 +362,14 @@ async function selectWordsToPractice(n, minLength, maxLength) {
     const wordSuccessProba = [];
     
     // WORDS is now a dictionary, so iterate over keys
+    // Chords mode only practises words that can be rolled without asking the
+    // same finger for two consecutive keys.
+    const chordsOnly = ACTIVE_MODE_KEY === 'chords';
+
     for (const word of Object.keys(WORDS)) {
         if (minLength !== null && minLength > 0 && word.length < minLength) continue;
         if (maxLength !== null && maxLength > 0 && word.length > maxLength) continue;
+        if (chordsOnly && !isEligibleForChords(word)) continue;
         
         const stats = wordStats[word.toLowerCase()] || { successes: 0, failures: 0 };
         const p = getWordInterest(OPTIONS, word, stats);
@@ -689,10 +735,23 @@ class TypingTest {
         this.inputElement.value = this.typedText;
         this.inputElement.setSelectionRange(end, end);
 
-        // charEverWrong is intentionally left untouched: a letter that was
-        // mistyped stays flagged as "corrected" once retyped, exactly as it
-        // does for a plain backspace.
+        // Erasing everything is a clean restart (see clearIfEmpty). Otherwise
+        // charEverWrong is left untouched: a letter that was mistyped stays
+        // flagged as "corrected" once retyped, as with a plain backspace.
+        this.clearIfEmpty();
         this.renderTarget();
+    }
+
+    // Deleting everything back to an empty input restarts the attempt: the
+    // timer and the error flags are cleared, so a fumbled start can be retried
+    // from scratch rather than being penalised for the rest of the test.
+    clearIfEmpty() {
+        if (this.typedText.length > 0) return false;
+
+        this.startTime = null;
+        this.charEverWrong = new Set();
+        this.charOutcomes = {};
+        return true;
     }
 
     // Walk the word occurrences of the current attempt and record, for each
@@ -915,6 +974,15 @@ class TypingTest {
         if (this.typedText.length === 1 && this.typedText[0] === ' ') {
             this.inputElement.value = '';
             this.typedText = '';
+            this.clearIfEmpty();
+            return;
+        }
+
+        // Erased everything: restart the attempt with a clean timer and no
+        // errors recorded, then redraw so the hints drop back to neutral.
+        if (this.typedText.length === 0) {
+            this.clearIfEmpty();
+            this.renderTarget();
             return;
         }
         

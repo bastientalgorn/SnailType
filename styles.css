@@ -614,14 +614,10 @@ main {
     width: 62px;
 }
 
+/* Option-name column: takes whatever the fixed-width mode columns leave */
 .modes-table th:first-child {
     text-align: left;
     width: auto;
-}
-
-/* Rightmost mode column, given extra room */
-.modes-table th:last-child {
-    width: 140px;
 }
 
 .modes-table td {
