@@ -17,17 +17,24 @@
         <main>
             <section class="stats-section options-compact">
                 <div id="modes-table-container"></div>
+                <div class="reset-row">
+                    <button id="reset-options-btn" class="reset-small-btn">Reset options to default</button>
+                </div>
+            </section>
+
+            <section class="stats-section options-compact">
                 <h2 class="keymap-heading">Keyboard Layout</h2>
                 <p class="section-hint">The physical position of each letter key. Used to understand which finger types what.</p>
                 <div id="keymap-grid" class="keymap-grid"></div>
                 <p id="keymap-warning" class="keymap-warning"></p>
+                <div class="reset-row">
+                    <button id="reset-keymap-btn" class="reset-small-btn">Reset keymap to default</button>
+                </div>
             </section>
 
-            <section class="stats-section options-compact danger-section">
-                <h2 class="keymap-heading">Reset</h2>
-                <p class="section-hint">Restore every mode and the keyboard layout to their default values. Your typing statistics are not affected.</p>
-                <button id="reset-btn" class="clear-btn">Reset to Defaults</button>
-            </section>
+            <div class="options-footer">
+                <a href="index.html" class="info-link">Back</a>
+            </div>
 
             <pre id="debug-output" style="color: #888; font-size: 0.75rem; margin-top: 20px; white-space: pre-wrap; word-break: break-all;"></pre>
         </main>

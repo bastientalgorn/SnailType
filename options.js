@@ -311,18 +311,28 @@ async function init() {
         console.error('Options init error:', e);
     }
 
-    document.getElementById('reset-btn').addEventListener('click', async () => {
+    document.getElementById('reset-options-btn').addEventListener('click', async () => {
         const ok = window.confirm(
-            'Reset all options and the keyboard layout to their default values?\n\n' +
-            'Your typing statistics will not be affected.'
+            'Reset all mode options to their default values?\n\n' +
+            'The keyboard layout and your typing statistics are not affected.'
         );
         if (!ok) return;
 
         await saveModes(JSON.parse(JSON.stringify(DEFAULT_MODES)));
-        await saveKeymap(JSON.parse(JSON.stringify(DEFAULT_KEYMAP)));
         await buildTable();
+        showToast('Options reset to default');
+    });
+
+    document.getElementById('reset-keymap-btn').addEventListener('click', async () => {
+        const ok = window.confirm(
+            'Reset the keyboard layout to QWERTY?\n\n' +
+            'Your mode options and typing statistics are not affected.'
+        );
+        if (!ok) return;
+
+        await saveKeymap(JSON.parse(JSON.stringify(DEFAULT_KEYMAP)));
         await buildKeymap();
-        showToast('Options reset!');
+        showToast('Keymap reset to default');
     });
 }
 
