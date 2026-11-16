@@ -615,10 +615,9 @@ main {
 /* Options page styles */
 .options-compact {
     padding: 20px;
-    /* The mode columns are a fixed 62px each (the last one 93px), so the
-       section width determines how much room is left for the option-name
-       column. 754px gives it 249px. */
-    max-width: 754px;
+    /* All seven mode columns are a fixed 62px, so the section width decides
+       how much room is left for the option-name column. 848px gives it 374px. */
+    max-width: 848px;
     /* `auto` on the sides to centre, but keep the gap between sections that
        .stats-section provides (a bare `margin: 0 auto` would cancel it) */
     margin: 0 auto 30px;
@@ -645,11 +644,6 @@ main {
 .modes-table th:first-child {
     text-align: left;
     width: auto;
-}
-
-/* Rightmost mode column, given 50% more room than the others */
-.modes-table th:last-child {
-    width: 93px;
 }
 
 .modes-table td {

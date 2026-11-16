@@ -1198,16 +1198,15 @@ const MODE_INSTRUCTIONS = {
         'This is how new words enter your statistics.'
     ],
     targeted: [
-        'A few of your weakest words, repeated three times each.',
+        'A few difficult words.',
         'Reach the target speed with no mistakes.',
-        'The target WPM goes down each time you type the whole thing correctly.'
     ],
     drill: [
-        'One weak word.',
-        'Reach the target speed with no mistakes, or the test repeats.'
+        'One difficult word.',
+        'Reach the target speed with no mistakes.'
     ],
     chords: [
-        'Short words that don\'t use the same finger twice in a row.',
+        'Short words that can be chorded.',
         'Type the whole word as one burst. '
     ]
 };
