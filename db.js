@@ -90,7 +90,7 @@ const DEFAULT_MODES = {
             minWordLength: 3,
             maxWordLength: 4,
             numWords: 1,
-            repetition: 10,
+            repetition: 1,
             minWpm: 250,
             allowError: false,
             maxTestRepeat: 10,
@@ -101,7 +101,7 @@ const DEFAULT_MODES = {
             capitalize: 'no',
             normalizeErrorByLength: false,
             recordStats: false,
-            mixedModeCount: 5
+            mixedModeCount: 10
         }
     },
     "slow": {
