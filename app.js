@@ -949,6 +949,7 @@ class TypingTest {
         this.resultsElement.className = 'results';
         
         this.renderTarget();
+        renderModeInstructions();
         
         // Display initial word statistics (before test)
         await this.displayInitialWordStats();
@@ -1184,6 +1185,44 @@ class TypingTest {
     }
 }
 
+// Short explanation shown at the bottom of the page for each mode, mirroring
+// the instructions the slow mode already had. Keyed by mode key; `mixed` is
+// handled separately since its segments each set their own key.
+const MODE_INSTRUCTIONS = {
+    sprint: [
+        'A long run of common words, typed once through.',
+        'Type as fast as you can.'
+    ],
+    general: [
+        'A broad sweep of the dictionary, favouring words you have never typed.',
+        'This is how new words enter your statistics.'
+    ],
+    targeted: [
+        'A few of your weakest words, repeated three times each.',
+        'Reach the target speed with no mistakes.',
+        'The target WPM goes down each time you type the whole thing correctly.'
+    ],
+    drill: [
+        'One weak word.',
+        'Reach the target speed with no mistakes, or the test repeats.'
+    ],
+    chords: [
+        'Short words that don\'t use the same finger twice in a row.',
+        'Type the whole word as one burst. '
+    ]
+};
+
+// Update the instruction line under the test for the mode in play.
+// In Mixed mode, ACTIVE_MODE_KEY is the current segment's key, so the
+// instructions follow the sub-mode actually being practised.
+function renderModeInstructions() {
+    const el = document.getElementById('mode-instructions');
+    if (!el) return;
+
+    const lines = MODE_INSTRUCTIONS[ACTIVE_MODE_KEY];
+    el.innerHTML = lines ? lines.join('<br>') : '';
+}
+
 // Initialize app
 let currentSlowCleanup = null;
 let isSlowModeActive = false;
@@ -1248,6 +1287,9 @@ function enterSlowMode(word) {
     if (inputArea) inputArea.style.display = 'none';
     if (results) results.style.display = 'none';
     if (debugDisplay) debugDisplay.style.display = 'none';
+    // Slow mode carries its own instructions
+    const modeInstructions = document.getElementById('mode-instructions');
+    if (modeInstructions) modeInstructions.style.display = 'none';
 
     // Show slow mode UI
     const slowContainer = document.getElementById('slow-mode-container');
@@ -1323,6 +1365,8 @@ function exitSlowMode() {
     if (inputArea) inputArea.style.display = '';
     if (results) results.style.display = '';
     if (debugDisplay) debugDisplay.style.display = '';
+    const modeInstructions = document.getElementById('mode-instructions');
+    if (modeInstructions) modeInstructions.style.display = '';
 }
 
 async function init() {

@@ -927,4 +927,5 @@ select.mode-input {
     font-family: 'Courier New', monospace;
     margin-top: 20px;
     color: #666;
+    text-align: center;
 }
