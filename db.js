@@ -91,7 +91,7 @@ const DEFAULT_MODES = {
             maxWordLength: 4,
             numWords: 1,
             repetition: 1,
-            minWpm: 250,
+            minWpm: 200,
             allowError: false,
             maxTestRepeat: 10,
             wpmReduction: 5,

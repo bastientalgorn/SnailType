@@ -619,6 +619,11 @@ main {
     width: auto;
 }
 
+/* Rightmost mode column, given extra room */
+.modes-table th:last-child {
+    width: 140px;
+}
+
 .modes-table td {
     padding: 6px 4px;
     vertical-align: middle;
