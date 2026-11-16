@@ -943,17 +943,6 @@ function addAxisLabel(svg, text, attrs) {
     svg.appendChild(label);
 }
 
-// Draw a polyline through [{x, y}] pixel points
-function addLine(svg, points, color) {
-    if (points.length < 2) return;
-    svg.appendChild(make('polyline', {
-        points: points.map(p => `${p.x},${p.y}`).join(' '),
-        fill: 'none',
-        stroke: color,
-        'stroke-width': '2'
-    }));
-}
-
 // Speed and accuracy of every Sprint run, in the order they were typed.
 // Two independent scales share the plot: WPM on the left, accuracy on the right.
 async function displaySprintHistory() {
@@ -1001,17 +990,13 @@ async function displaySprintHistory() {
     const wpmPoints = runs.map((r, i) => ({ x: plot.x(i), y: plot.y(r.wpm / wpmMax) }));
     const accPoints = runs.map((r, i) => ({ x: plot.x(i), y: plot.y(r.accuracy) }));
 
-    addLine(plot.svg, wpmPoints, '#4CAF50');
-    addLine(plot.svg, accPoints, '#2196F3');
-
-    // Dots are only readable for short histories
-    if (runs.length <= 60) {
-        for (const p of wpmPoints) {
-            plot.svg.appendChild(make('circle', { cx: p.x, cy: p.y, r: 3, fill: '#4CAF50' }));
-        }
-        for (const p of accPoints) {
-            plot.svg.appendChild(make('circle', { cx: p.x, cy: p.y, r: 3, fill: '#2196F3' }));
-        }
+    // Dots only: connecting lines imply a continuity between runs that isn't
+    // there, and they get noisy once there are more than a handful.
+    for (const p of wpmPoints) {
+        plot.svg.appendChild(make('circle', { cx: p.x, cy: p.y, r: 3, fill: '#4CAF50' }));
+    }
+    for (const p of accPoints) {
+        plot.svg.appendChild(make('circle', { cx: p.x, cy: p.y, r: 3, fill: '#2196F3' }));
     }
 
     addAxisLabel(plot.svg, `Sprint runs (oldest to newest, ${runs.length} total)`, {
