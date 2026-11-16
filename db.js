@@ -371,4 +371,48 @@ async function saveMixedProgress(segmentIndex, testsDoneInSegment) {
     });
 }
 
-export { initDB, db, getSetting, saveSetting, loadModes, saveModes, loadActiveMode, saveActiveMode, loadMixedTargetedCount, saveMixedTargetedCount, loadMixedProgress, saveMixedProgress, sanitizeOptions, sanitizeModes, DEFAULT_MODES, DEFAULT_MIXED_TARGETED_COUNT, OPTION_FIELDS };
+// --- Keymap -----------------------------------------------------------------
+// A 3x10 grid describing the physical layout of the letter keys.
+// Row 0 = top row, row 1 = home row, row 2 = bottom row.
+// Columns 0-4 are the left hand, columns 5-9 the right hand.
+const KEYMAP_ROWS = 3;
+const KEYMAP_COLS = 10;
+
+const DEFAULT_KEYMAP = [
+    ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
+    ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'],
+    ['z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/']
+];
+
+// Ensure a keymap is always a 3x10 grid of single characters
+function sanitizeKeymap(keymap) {
+    const result = [];
+    for (let r = 0; r < KEYMAP_ROWS; r++) {
+        const row = [];
+        for (let c = 0; c < KEYMAP_COLS; c++) {
+            const raw = Array.isArray(keymap) && Array.isArray(keymap[r]) ? keymap[r][c] : undefined;
+            const value = typeof raw === 'string' ? raw.trim() : '';
+            row.push(value ? value.slice(0, 1).toLowerCase() : DEFAULT_KEYMAP[r][c]);
+        }
+        result.push(row);
+    }
+    return result;
+}
+
+// Load keymap — always returns a valid 3x10 grid
+async function loadKeymap() {
+    try {
+        const saved = await getSetting('keymap');
+        if (saved) return sanitizeKeymap(saved);
+    } catch (e) {
+        console.error('Failed to load keymap from DB:', e);
+    }
+    return JSON.parse(JSON.stringify(DEFAULT_KEYMAP));
+}
+
+// Save keymap — sanitizes before saving
+async function saveKeymap(keymap) {
+    await saveSetting('keymap', sanitizeKeymap(keymap));
+}
+
+export { initDB, db, getSetting, saveSetting, loadModes, saveModes, loadActiveMode, saveActiveMode, loadMixedTargetedCount, saveMixedTargetedCount, loadMixedProgress, saveMixedProgress, loadKeymap, saveKeymap, sanitizeKeymap, sanitizeOptions, sanitizeModes, DEFAULT_MODES, DEFAULT_MIXED_TARGETED_COUNT, DEFAULT_KEYMAP, KEYMAP_ROWS, KEYMAP_COLS, OPTION_FIELDS };

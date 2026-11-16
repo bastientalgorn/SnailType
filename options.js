@@ -1,4 +1,4 @@
-import { initDB, loadModes, saveModes, DEFAULT_MODES, OPTION_FIELDS, sanitizeOptions } from './db.js';
+import { initDB, loadModes, saveModes, loadKeymap, saveKeymap, DEFAULT_MODES, DEFAULT_KEYMAP, KEYMAP_ROWS, KEYMAP_COLS, OPTION_FIELDS, sanitizeOptions } from './db.js';
 
 // UI labels and descriptions for option fields (extends the schema from db.js)
 const OPTION_UI = {
@@ -142,6 +142,86 @@ async function readTableValues() {
     return modes;
 }
 
+// Build the 3x10 keymap grid
+async function buildKeymap() {
+    const container = document.getElementById('keymap-grid');
+    if (!container) return;
+    const keymap = await loadKeymap();
+
+    // Move focus to the Nth key in the grid (flat index, so it wraps across rows)
+    const focusKey = (index) => {
+        const keys = container.querySelectorAll('.keymap-key');
+        if (index >= 0 && index < keys.length) {
+            keys[index].focus();
+            keys[index].select();
+            return true;
+        }
+        return false;
+    };
+
+    container.innerHTML = '';
+    for (let r = 0; r < KEYMAP_ROWS; r++) {
+        const rowDiv = document.createElement('div');
+        rowDiv.classList.add('keymap-row');
+        for (let c = 0; c < KEYMAP_COLS; c++) {
+            const flatIndex = r * KEYMAP_COLS + c;
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.maxLength = 1;
+            input.value = keymap[r][c];
+            input.dataset.row = r;
+            input.dataset.col = c;
+            input.classList.add('keymap-key');
+            // Visually separate the left and right hands
+            if (c === 5) input.classList.add('keymap-gap');
+
+            // Typing a character advances to the next key, wrapping to the next row
+            input.addEventListener('input', () => {
+                input.value = input.value.trim().slice(0, 1).toLowerCase();
+                if (input.value) focusKey(flatIndex + 1);
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && input.value === '') {
+                    // Already empty: step back to the previous key
+                    e.preventDefault();
+                    focusKey(flatIndex - 1);
+                } else if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    focusKey(flatIndex + 1);
+                } else if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    focusKey(flatIndex - 1);
+                } else if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    focusKey(flatIndex + KEYMAP_COLS);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    focusKey(flatIndex - KEYMAP_COLS);
+                }
+            });
+
+            input.addEventListener('focus', () => input.select());
+            rowDiv.appendChild(input);
+        }
+        container.appendChild(rowDiv);
+    }
+}
+
+// Read the keymap grid into a 3x10 array
+function readKeymapValues() {
+    const keymap = [];
+    for (let r = 0; r < KEYMAP_ROWS; r++) {
+        keymap.push(new Array(KEYMAP_COLS).fill(''));
+    }
+    for (const input of document.querySelectorAll('.keymap-key')) {
+        const r = Number(input.dataset.row);
+        const c = Number(input.dataset.col);
+        if (keymap[r]) keymap[r][c] = input.value;
+    }
+    return keymap;
+}
+
 // Show toast notification
 function showToast(message) {
     const toast = document.getElementById('toast');
@@ -163,6 +243,7 @@ async function init() {
             debugDiv.textContent = JSON.stringify(modes, null, 2);
         }
         await buildTable();
+        await buildKeymap();
     } catch (e) {
         const debugDiv = document.getElementById('debug-output');
         if (debugDiv) {
@@ -174,7 +255,9 @@ async function init() {
     document.getElementById('save-btn').addEventListener('click', async () => {
         const modes = await readTableValues();
         await saveModes(modes);  // saveModes sanitizes before saving
+        await saveKeymap(readKeymapValues());
         await buildTable(); // Refresh to show sanitized values
+        await buildKeymap();
         // Debug: dump saved modes
         const debugDiv = document.getElementById('debug-output');
         if (debugDiv) {
@@ -186,7 +269,9 @@ async function init() {
 
     document.getElementById('reset-btn').addEventListener('click', async () => {
         await saveModes(JSON.parse(JSON.stringify(DEFAULT_MODES)));
+        await saveKeymap(JSON.parse(JSON.stringify(DEFAULT_KEYMAP)));
         await buildTable();
+        await buildKeymap();
         showToast('Options reset!');
     });
 }

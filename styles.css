@@ -496,6 +496,49 @@ main {
     margin: -10px 0 15px 0;
 }
 
+/* Keyboard layout grid (options page) */
+.keymap-heading {
+    color: #4CAF50;
+    font-size: 1.1rem;
+    margin: 30px 0 10px 0;
+}
+
+.keymap-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 20px;
+}
+
+.keymap-row {
+    display: flex;
+    gap: 6px;
+}
+
+.keymap-key {
+    width: 38px;
+    height: 38px;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+    font-size: 1rem;
+    text-transform: lowercase;
+    background-color: #2a2a2a;
+    border: 2px solid #555;
+    border-radius: 5px;
+    color: #fff;
+    padding: 0;
+}
+
+.keymap-key:focus {
+    outline: none;
+    border-color: #4CAF50;
+}
+
+/* Gap between the left and right hands */
+.keymap-key.keymap-gap {
+    margin-left: 24px;
+}
+
 /* Options page styles */
 .options-compact {
     padding: 20px;
