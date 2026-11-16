@@ -173,6 +173,25 @@ async function readTableValues() {
     return modes;
 }
 
+// Keymap display shape. Purely cosmetic: it only changes how the grid is drawn
+// on this page, never the stored layout or anything the app computes from it.
+const KEYMAP_SHAPE_STORAGE_KEY = 'keymapShape';
+
+function getKeymapShape() {
+    return localStorage.getItem(KEYMAP_SHAPE_STORAGE_KEY) === 'staggered'
+        ? 'staggered'
+        : 'ortholinear';
+}
+
+function applyKeymapShape(shape) {
+    const grid = document.getElementById('keymap-grid');
+    if (grid) grid.classList.toggle('keymap-staggered', shape === 'staggered');
+
+    const btn = document.getElementById('keymap-shape-btn');
+    // The button shows what it will switch to, not the current state
+    if (btn) btn.textContent = shape === 'staggered' ? 'Show ortholinear' : 'Show staggered';
+}
+
 // Build the 3x10 keymap grid
 async function buildKeymap() {
     const container = document.getElementById('keymap-grid');
@@ -251,6 +270,7 @@ async function buildKeymap() {
         }
         container.appendChild(rowDiv);
     }
+    applyKeymapShape(getKeymapShape());
     validateKeymap();
 }
 
@@ -321,6 +341,12 @@ async function init() {
         await saveModes(JSON.parse(JSON.stringify(DEFAULT_MODES)));
         await buildTable();
         showToast('Options reset to default');
+    });
+
+    document.getElementById('keymap-shape-btn').addEventListener('click', () => {
+        const next = getKeymapShape() === 'staggered' ? 'ortholinear' : 'staggered';
+        localStorage.setItem(KEYMAP_SHAPE_STORAGE_KEY, next);
+        applyKeymapShape(next);
     });
 
     document.getElementById('reset-keymap-btn').addEventListener('click', async () => {

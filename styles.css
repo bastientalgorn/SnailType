@@ -517,6 +517,27 @@ main {
     gap: 6px;
 }
 
+/* Staggered display: each row is shifted right by a third of a key relative
+   to the one above, mimicking a traditional keyboard. Purely cosmetic. */
+/* Staggered display: each row is shifted right by a third of a key relative
+   to the one above, mimicking a traditional keyboard. Purely cosmetic.
+   translateX is used rather than a margin so the rows stay centred as a block.
+   One third of the 44px key pitch (38px key + 6px gap) is ~14.7px. */
+.keymap-grid.keymap-staggered .keymap-row:nth-child(2) {
+    transform: translateX(14.7px);
+}
+
+.keymap-grid.keymap-staggered .keymap-row:nth-child(3) {
+    transform: translateX(29.4px);
+}
+
+/* Row of controls above the keymap grid */
+.keymap-toolbar {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 14px;
+}
+
 .keymap-key {
     width: 38px;
     height: 38px;
@@ -594,7 +615,10 @@ main {
 /* Options page styles */
 .options-compact {
     padding: 20px;
-    max-width: 640px;
+    /* The mode columns are a fixed 62px each, so the section width determines
+       how much room is left for the option-name column. 723px gives it 249px,
+       50% more than the 166px it had at 640px. */
+    max-width: 723px;
     margin: 0 auto;
 }
 
