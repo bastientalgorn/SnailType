@@ -15,6 +15,7 @@ const OPTION_UI = {
     favorNewWords: { label: 'Favor New Words', desc: 'Prioritize words you haven\'t practiced yet', choices: [{ value: 'true', text: 'Yes' }, { value: 'false', text: 'No' }] },
     capitalize: { label: 'Capitalize', desc: 'Word capitalization', choices: [{ value: 'no', text: 'No' }, { value: 'yes', text: 'Yes' }, { value: 'random', text: 'Random' }] },
     normalizeErrorByLength: { label: 'Normalize Error by Length', desc: 'Divide error rate by word length', choices: [{ value: 'true', text: 'Yes' }, { value: 'false', text: 'No' }] },
+    recordStats: { label: 'Record Stats', desc: 'Save this mode\'s results to your statistics. Turn off for pure practice modes.', choices: [{ value: 'true', text: 'Yes' }, { value: 'false', text: 'No' }] },
     mixedModeCount: { label: 'Tests in Mixed Mode', desc: 'Number of tests of this mode when in Mixed super-mode (0 to skip)' }
 };
 

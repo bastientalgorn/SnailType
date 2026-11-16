@@ -21,7 +21,7 @@ SnailType's goal is to help you improve your typing by keeping track of the word
 | --- | --- |
 | **Sprint** | Short runs of common words, weighted by how frequently they appear in English. No speed requirement — good for warming up. |
 | **General** | Longer runs drawn from the whole word list, favouring words you haven't practised yet. No speed requirement. |
-| **Targeted** | Small sets of your most error-prone words, each repeated a few times, with a target speed to beat. |
+| **Focus** | Small sets of your most error-prone words, each repeated a few times, with a target speed to beat. |
 | **Drill** | A single problem word repeated many times at a high target speed, to build muscle memory. |
 | **Slow** | One word at a time, typed in rhythm with a metronome that gradually speeds up. |
 | **Mixed** | Cycles automatically through the other modes. Each mode's "Tests in Mixed Mode" option sets how many tests it contributes per rotation (0 to skip it). |
@@ -72,6 +72,6 @@ For each word you type, SnailType keeps a rolling history of your last **50 atte
 
 - Estimate your success probability for each word.
 - Identify your weakest/most error-prone words.
-- Prioritize those words for practice in the error-driven modes ("Targeted", "Drill" and "Slow").
+- Prioritize those words for practice in the error-driven modes ("Focus", "Drill" and "Slow").
 
 No raw keystrokes, timestamps of individual keypresses, or personally identifying information are collected — only the per-word correct/incorrect outcome history described above, plus aggregate typing speed (WPM) and accuracy for each test session.

@@ -5,6 +5,10 @@ import { initSlowMode } from './slow.js';
 // Get current options (will be set after DB init)
 let OPTIONS = {};
 
+// Key of the mode currently being practiced ('sprint', 'chords', ...).
+// In Mixed mode this is the key of the current segment, not 'mixed'.
+let ACTIVE_MODE_KEY = null;
+
 let db;
 
 // Parse a bitfield string into { successes, failures }
@@ -987,7 +991,10 @@ class TypingTest {
         const wpmPassed = this.currentWpmThreshold === null || this.currentWpmThreshold === 0 || wpmRounded >= this.currentWpmThreshold;
         const errorPassed = OPTIONS.allowError || !hadErrors;
         const testPassed = wpmPassed && errorPassed;
-        
+
+        // Chords mode moves straight on after a success instead of waiting for Enter
+        const autoAdvance = testPassed && ACTIVE_MODE_KEY === 'chords';
+
         // Display results
         if (testPassed) {
             this.resultsElement.className = 'results success';
@@ -995,7 +1002,7 @@ class TypingTest {
                 <div class="result-metric">${wpm.toFixed(0)} WPM</div>
                 <div class="result-metric">${errorCount} Error${errorCount !== 1 ? 's' : ''}</div>
                 <div class="result-status success-text">✓ Success</div>
-                <div class="result-next">Press Enter for next test</div>
+                <div class="result-next">${autoAdvance ? '' : 'Press Enter for next test'}</div>
             `;
         } else {
             this.resultsElement.className = 'results retry';
@@ -1013,19 +1020,25 @@ class TypingTest {
         
         // Display word statistics
         await displayWordStats(this.words, wordResults);
-        
-        // Update statistics
-        await updateWordStats(this.words, wordResults);
 
-        // Flush per-character outcomes for this attempt, then reset them so a
-        // retry doesn't double-count what has already been stored.
-        await mergeCharStats(this.charOutcomes);
+        // Practice-only modes (recordStats: false) leave the saved statistics
+        // untouched, so drilling the same word doesn't distort its error rate.
+        if (OPTIONS.recordStats !== false) {
+            await updateWordStats(this.words, wordResults);
+            // Flush per-character outcomes for this attempt
+            await mergeCharStats(this.charOutcomes);
+        }
+
+        // Reset either way so a retry doesn't double-count what was stored.
         this.charOutcomes = {};
         
         // Check if slow mode (numWords = 1)
         const isSlowMode = OPTIONS.numWords === 1;
         
-        if (isSlowMode && !testPassed && this.attemptCount < OPTIONS.maxTestRepeat) {
+        if (autoAdvance) {
+            // Chords mode: show the success briefly, then start the next test
+            setTimeout(() => this.nextTest(), 300);
+        } else if (isSlowMode && !testPassed && this.attemptCount < OPTIONS.maxTestRepeat) {
             // Slow mode: auto-retry without Enter key
             this.attemptCount++;
             
@@ -1123,6 +1136,7 @@ function buildMixedPlaylist(modes) {
 function applyMixedSegment() {
     const segment = mixedPlaylist[mixedSegmentIndex];
     OPTIONS = segment.mode.options;
+    ACTIVE_MODE_KEY = segment.key;
     const isSlowSegment = segment.key === 'slow' || segment.mode.name?.toLowerCase() === 'slow';
     if (isSlowSegment) {
         selectWordsToPractice(1, OPTIONS.minWordLength, OPTIONS.maxWordLength).then(words => {
@@ -1272,6 +1286,7 @@ async function init() {
         startupKey = await loadActiveMode();
         if (modes[startupKey]) {
             OPTIONS = modes[startupKey].options || OPTIONS;
+            ACTIVE_MODE_KEY = startupKey;
         }
     } catch (e) {
         console.error('Failed to load modes:', e);
@@ -1326,6 +1341,7 @@ async function init() {
                 if (isSlowModeActive) exitSlowMode();
                 await saveActiveMode(key);
                 OPTIONS = mode.options;
+                ACTIVE_MODE_KEY = key;
                 // Update active style
                 modeButtonsContainer.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');

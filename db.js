@@ -20,6 +20,7 @@ const DEFAULT_MODES = {
             favorNewWords: false,
             capitalize: 'no',
             normalizeErrorByLength: false,
+            recordStats: true,
             mixedModeCount: 1
         }
     },
@@ -39,11 +40,12 @@ const DEFAULT_MODES = {
             favorNewWords: true,
             capitalize: 'no',
             normalizeErrorByLength: false,
+            recordStats: true,
             mixedModeCount: 2
         }
     },
     "targeted": {
-        name: "Targeted",
+        name: "Focus",
         options: {
             minWordLength: 3,
             maxWordLength: 20,
@@ -58,6 +60,7 @@ const DEFAULT_MODES = {
             favorNewWords: false,
             capitalize: 'no',
             normalizeErrorByLength: false,
+            recordStats: true,
             mixedModeCount: 5
         }
     },
@@ -77,6 +80,7 @@ const DEFAULT_MODES = {
             favorNewWords: false,
             capitalize: 'no',
             normalizeErrorByLength: false,
+            recordStats: true,
             mixedModeCount: 5
         }
     },
@@ -87,7 +91,7 @@ const DEFAULT_MODES = {
             maxWordLength: 20,
             numWords: 1,
             repetition: 10,
-            minWpm: 80,
+            minWpm: 250,
             allowError: false,
             maxTestRepeat: 10,
             wpmReduction: 5,
@@ -96,6 +100,7 @@ const DEFAULT_MODES = {
             favorNewWords: false,
             capitalize: 'no',
             normalizeErrorByLength: false,
+            recordStats: false,
             mixedModeCount: 5
         }
     },
@@ -115,6 +120,7 @@ const DEFAULT_MODES = {
             favorNewWords: false,
             capitalize: 'no',
             normalizeErrorByLength: false,
+            recordStats: false,
             mixedModeCount: 1
         }
     },
@@ -140,6 +146,7 @@ const OPTION_FIELDS = [
     { key: 'favorNewWords', type: 'boolean' },
     { key: 'capitalize', type: 'enum', values: ['no', 'yes', 'random'] },
     { key: 'normalizeErrorByLength', type: 'boolean' },
+    { key: 'recordStats', type: 'boolean' },
     { key: 'mixedModeCount', type: 'number', min: 0, max: 100 }
 ];
 
