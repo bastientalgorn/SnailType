@@ -369,6 +369,23 @@ function isEligibleForChords(word) {
 
 // Select words to practice using Beta-Binomial model
 async function selectWordsToPractice(n, minLength, maxLength) {
+    // Sprint mode: choose uniformly from the 200 most frequent words.
+    // This bypasses error-driven ranking so Sprint stays a pure fluency run.
+    if (ACTIVE_MODE_KEY === 'sprint') {
+        const pool = Object.keys(WORDS)
+            .filter(word => !(minLength !== null && minLength > 0 && word.length < minLength))
+            .filter(word => !(maxLength !== null && maxLength > 0 && word.length > maxLength))
+            .sort((a, b) => (WORDS[b] || 0) - (WORDS[a] || 0))
+            .slice(0, 200);
+
+        for (let i = pool.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [pool[i], pool[j]] = [pool[j], pool[i]];
+        }
+
+        return pool.slice(0, Math.min(n, pool.length));
+    }
+
     const wordStats = await getWordStats();
     
     const wordSuccessProba = [];
