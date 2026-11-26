@@ -1,5 +1,5 @@
 import { WORDS } from './words.js';
-import { initDB, loadModes, saveModes, loadActiveMode, saveActiveMode, loadMixedProgress, saveMixedProgress, loadKeymap, addSprintRun, DEFAULT_MODES, DEFAULT_KEYMAP } from './db.js';
+import { initDB, loadModes, saveModes, loadActiveMode, saveActiveMode, loadMixedProgress, saveMixedProgress, loadKeymap, addSprintRun, CHAR_PAIR_BIN_COUNT, delayToBinIndex, mergeCharPairDelays, mergeWordDelays, DEFAULT_MODES, DEFAULT_KEYMAP } from './db.js';
 import { initSlowMode } from './slow.js';
 
 // Get current options (will be set after DB init)
@@ -652,6 +652,21 @@ class TypingTest {
         // Per-character outcomes for the current test ('1' correct, '0'
         // mistyped), in typing order. Flushed to the DB when the test completes.
         this.charOutcomes = {};
+        // Delay between consecutive keystrokes, bucketed into bins and keyed by
+        // the exact two-character pair typed. Flushed to the DB on completion;
+        // see recordKeystrokeTiming() for how the chain is built and broken.
+        this.pairDelayCounts = {};
+        this.lastKeystrokeTime = null;
+        this.lastKeystrokeChar = null;
+        // Per-word pace: (last letter time - first letter time) / (length - 1)
+        // for each word occurrence, bucketed the same way and keyed by the word
+        // exactly as typed. wordRanges/wordStartTime/wordEndRecorded are set up
+        // per attempt in startNewTest() and reset on retry; wordDelayCounts is
+        // flushed to the DB (and cleared) in completeTest().
+        this.wordRanges = [];
+        this.wordStartTime = [];
+        this.wordEndRecorded = [];
+        this.wordDelayCounts = {};
         
         this.inputElement = document.getElementById('typing-input');
         this.resultsElement = document.getElementById('results');
@@ -780,7 +795,25 @@ class TypingTest {
         this.startTime = null;
         this.charEverWrong = new Set();
         this.charOutcomes = {};
+        this.pairDelayCounts = {};
+        this.lastKeystrokeTime = null;
+        this.lastKeystrokeChar = null;
+        this.wordStartTime = new Array(this.words.length).fill(null);
+        this.wordEndRecorded = new Array(this.words.length).fill(false);
+        this.wordDelayCounts = {};
         return true;
+    }
+
+    // Character ranges [start, end) of each word occurrence within targetText
+    computeWordRanges() {
+        const ranges = [];
+        let charIndex = 0;
+        for (const word of this.words) {
+            const end = charIndex + word.length;
+            ranges.push({ start: charIndex, end });
+            charIndex = end + 1;  // +1 for the space
+        }
+        return ranges;
     }
 
     // Walk the word occurrences of the current attempt and record, for each
@@ -970,6 +1003,13 @@ class TypingTest {
         this.keyLog = [];
         this.wordErrorCounts = {};
         this.charOutcomes = {};
+        this.pairDelayCounts = {};
+        this.lastKeystrokeTime = null;
+        this.lastKeystrokeChar = null;
+        this.wordRanges = this.computeWordRanges();
+        this.wordStartTime = new Array(this.words.length).fill(null);
+        this.wordEndRecorded = new Array(this.words.length).fill(false);
+        this.wordDelayCounts = {};
         
         this.inputElement.value = '';
         this.inputElement.disabled = false;
@@ -997,6 +1037,10 @@ class TypingTest {
             this.typedText = previous;
             this.inputElement.value = previous;
             this.inputElement.setSelectionRange(previous.length, previous.length);
+            // Not a real keystroke: don't let the next one pair with whatever
+            // preceded this rejected edit.
+            this.lastKeystrokeTime = null;
+            this.lastKeystrokeChar = null;
             return;
         }
 
@@ -1022,6 +1066,14 @@ class TypingTest {
             this.inputElement.value = this.typedText;
         }
         
+        // A shortening edit (plain Backspace) breaks the inter-keystroke chain:
+        // whatever comes next must not be paired with what preceded this edit.
+        // (Erasing all the way to empty is handled above, via clearIfEmpty.)
+        if (this.typedText.length < previous.length) {
+            this.lastKeystrokeTime = null;
+            this.lastKeystrokeChar = null;
+        }
+        
         // Start timer when typing begins (ensure it's always set)
         if (this.startTime === null && this.typedText.length > 0) {
             this.startTime = Date.now();
@@ -1030,13 +1082,49 @@ class TypingTest {
         // Check current character
         if (this.typedText.length > 0 && this.typedText.length <= this.targetText.length) {
             const currentIndex = this.typedText.length - 1;
-            const isCorrect = this.typedText[currentIndex] === this.targetText[currentIndex];
+            const typedChar = this.typedText[currentIndex];
+            const isCorrect = typedChar === this.targetText[currentIndex];
             const expected = this.targetText[currentIndex];
 
             // Only count a new keystroke, not the re-check that happens when
             // backspace shortens the text back onto an already-typed index.
             if (this.typedText.length > previous.length) {
                 this.charOutcomes[expected] = (this.charOutcomes[expected] || '') + (isCorrect ? '1' : '0');
+
+                // Keystroke timing: record the delay from the previous raw
+                // keystroke, using what was actually typed (not the target),
+                // since this tracks typing rhythm rather than accuracy.
+                const now = Date.now();
+                if (this.lastKeystrokeTime !== null && this.lastKeystrokeChar !== null) {
+                    const pair = this.lastKeystrokeChar + typedChar;
+                    const bins = this.pairDelayCounts[pair] || new Array(CHAR_PAIR_BIN_COUNT).fill(0);
+                    bins[delayToBinIndex(now - this.lastKeystrokeTime)]++;
+                    this.pairDelayCounts[pair] = bins;
+                }
+                this.lastKeystrokeTime = now;
+                this.lastKeystrokeChar = typedChar;
+
+                // Per-word pace: first keystroke of a word occurrence starts
+                // the clock, its last keystroke (the first time this specific
+                // occurrence reaches full length) stops it. Backspacing around
+                // within the word doesn't affect this — only those two events
+                // matter, and only their first occurrence each.
+                for (let w = 0; w < this.wordRanges.length; w++) {
+                    const range = this.wordRanges[w];
+                    if (currentIndex === range.start && this.wordStartTime[w] === null) {
+                        this.wordStartTime[w] = now;
+                    }
+                    if (currentIndex === range.end - 1 && this.wordStartTime[w] !== null && !this.wordEndRecorded[w]) {
+                        this.wordEndRecorded[w] = true;
+                        const word = this.words[w];
+                        if (word.length > 1) {
+                            const interval = (now - this.wordStartTime[w]) / (word.length - 1);
+                            const wordBins = this.wordDelayCounts[word] || new Array(CHAR_PAIR_BIN_COUNT).fill(0);
+                            wordBins[delayToBinIndex(interval)]++;
+                            this.wordDelayCounts[word] = wordBins;
+                        }
+                    }
+                }
             }
 
             if (!isCorrect) {
@@ -1140,8 +1228,26 @@ class TypingTest {
             }
         }
 
+        // Keystroke-pair timing: flushed every completed attempt, independent
+        // of recordStats (this is rhythm data, not a word/error stat). Slow
+        // mode never reaches here, since it has its own input handling.
+        try {
+            await mergeCharPairDelays(this.pairDelayCounts);
+        } catch (e) {
+            console.error('Failed to record keystroke pair delays:', e);
+        }
+
+        // Per-word pace, same reasoning as the pair delays above.
+        try {
+            await mergeWordDelays(this.wordDelayCounts);
+        } catch (e) {
+            console.error('Failed to record word delays:', e);
+        }
+
         // Reset either way so a retry doesn't double-count what was stored.
         this.charOutcomes = {};
+        this.pairDelayCounts = {};
+        this.wordDelayCounts = {};
         
         // Check if slow mode (numWords = 1)
         const isSlowMode = OPTIONS.numWords === 1;
@@ -1162,6 +1268,10 @@ class TypingTest {
                 this.startTime = null;
                 this.charEverWrong = new Set();
                 this.keyLog = [];
+                this.lastKeystrokeTime = null;
+                this.lastKeystrokeChar = null;
+                this.wordStartTime = new Array(this.words.length).fill(null);
+                this.wordEndRecorded = new Array(this.words.length).fill(false);
                 this.inputElement.value = '';
                 this.inputElement.disabled = false;
                 this.inputElement.focus();
@@ -1197,6 +1307,10 @@ class TypingTest {
                             this.startTime = null;
                             this.charEverWrong = new Set();
                             this.keyLog = [];
+                            this.lastKeystrokeTime = null;
+                            this.lastKeystrokeChar = null;
+                            this.wordStartTime = new Array(this.words.length).fill(null);
+                            this.wordEndRecorded = new Array(this.words.length).fill(false);
                             this.inputElement.value = '';
                             this.inputElement.disabled = false;
                             this.inputElement.focus();

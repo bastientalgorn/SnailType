@@ -427,6 +427,85 @@ async function clearSprintRuns() {
     await saveSetting('sprintRuns', []);
 }
 
+// --- Keystroke pair delays ---------------------------------------------------
+// Histogram of the delay between every two consecutive keystrokes, keyed by
+// the exact two-character pair typed (case-sensitive, e.g. "ab", "aB", " a").
+// Pairs involving a non-printable keystroke (backspace, arrows, ...) are never
+// recorded — see app.js, which breaks the chain whenever that happens.
+//
+// Delays are bucketed rather than stored individually, to keep the record a
+// small, fixed-size table instead of an ever-growing log:
+//   bin 0..15: [0-25), [25-50), ..., [375-400) ms
+//   bin 16:    400ms and above
+const CHAR_PAIR_BIN_SIZE = 25;
+const CHAR_PAIR_BIN_COUNT = 17;
+
+function delayToBinIndex(ms) {
+    return Math.min(Math.floor(Math.max(ms, 0) / CHAR_PAIR_BIN_SIZE), CHAR_PAIR_BIN_COUNT - 1);
+}
+
+async function loadCharPairDelays() {
+    try {
+        const stored = await getSetting('charPairDelays');
+        return (stored && typeof stored === 'object') ? stored : {};
+    } catch (e) {
+        console.error('Failed to load charPairDelays:', e);
+        return {};
+    }
+}
+
+// Merge one test's locally-accumulated pair counts into the stored totals.
+// `counts` is { pair: [bin0, bin1, ...] }, same shape as the stored record.
+async function mergeCharPairDelays(counts) {
+    if (!counts || Object.keys(counts).length === 0) return;
+
+    const stored = await loadCharPairDelays();
+    mergeBinCounts(stored, counts);
+    await saveSetting('charPairDelays', stored);
+}
+
+async function clearCharPairDelays() {
+    await saveSetting('charPairDelays', {});
+}
+
+// Add `counts` (key -> bins) into `stored` (key -> bins) in place
+function mergeBinCounts(stored, counts) {
+    for (const [key, bins] of Object.entries(counts)) {
+        const existing = stored[key] || new Array(CHAR_PAIR_BIN_COUNT).fill(0);
+        for (let i = 0; i < CHAR_PAIR_BIN_COUNT; i++) existing[i] += bins[i] || 0;
+        stored[key] = existing;
+    }
+}
+
+// --- Per-word keystroke interval -------------------------------------------
+// Average delay between keystrokes within a single occurrence of a word:
+// (time of its last letter - time of its first letter) / (word.length - 1).
+// Keyed by the word exactly as typed (case-sensitive, so "Hello" and "hello"
+// are tracked separately). Uses the same 25ms bins as the pair delays, but is
+// kept as its own record since it measures a different thing (overall pace
+// across a whole word, not a single keystroke-to-keystroke gap).
+async function loadWordDelays() {
+    try {
+        const stored = await getSetting('wordDelays');
+        return (stored && typeof stored === 'object') ? stored : {};
+    } catch (e) {
+        console.error('Failed to load wordDelays:', e);
+        return {};
+    }
+}
+
+async function mergeWordDelays(counts) {
+    if (!counts || Object.keys(counts).length === 0) return;
+
+    const stored = await loadWordDelays();
+    mergeBinCounts(stored, counts);
+    await saveSetting('wordDelays', stored);
+}
+
+async function clearWordDelays() {
+    await saveSetting('wordDelays', {});
+}
+
 // --- Keymap -----------------------------------------------------------------
 // A 3x10 grid describing the physical layout of the letter keys.
 // Row 0 = top row, row 1 = home row, row 2 = bottom row.
@@ -501,4 +580,4 @@ async function saveKeymap(keymap) {
     await saveSetting('keymap', sanitizeKeymap(keymap));
 }
 
-export { initDB, db, getSetting, saveSetting, loadModes, saveModes, loadActiveMode, saveActiveMode, loadMixedTargetedCount, saveMixedTargetedCount, loadMixedProgress, saveMixedProgress, loadSprintRuns, addSprintRun, clearSprintRuns, loadKeymap, saveKeymap, sanitizeKeymap, findMissingLetters, sanitizeOptions, sanitizeModes, DEFAULT_MODES, DEFAULT_MIXED_TARGETED_COUNT, DEFAULT_KEYMAP, KEYMAP_ROWS, KEYMAP_COLS, OPTION_FIELDS };
+export { initDB, db, getSetting, saveSetting, loadModes, saveModes, loadActiveMode, saveActiveMode, loadMixedTargetedCount, saveMixedTargetedCount, loadMixedProgress, saveMixedProgress, loadSprintRuns, addSprintRun, clearSprintRuns, CHAR_PAIR_BIN_SIZE, CHAR_PAIR_BIN_COUNT, delayToBinIndex, loadCharPairDelays, mergeCharPairDelays, clearCharPairDelays, loadWordDelays, mergeWordDelays, clearWordDelays, loadKeymap, saveKeymap, sanitizeKeymap, findMissingLetters, sanitizeOptions, sanitizeModes, DEFAULT_MODES, DEFAULT_MIXED_TARGETED_COUNT, DEFAULT_KEYMAP, KEYMAP_ROWS, KEYMAP_COLS, OPTION_FIELDS };

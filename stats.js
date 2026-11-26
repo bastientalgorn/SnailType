@@ -556,8 +556,11 @@ async function clearAllData() {
         
         wordStatsStore.clear();
         mistypedCharsStore.clear();
-        // Only the sprint history is statistics; the other settings are options
+        // Only the sprint history and pair-delay timings are statistics; the
+        // other settings (options, keymap, ...) are left alone.
         transaction.objectStore('settings').delete('sprintRuns');
+        transaction.objectStore('settings').delete('charPairDelays');
+        transaction.objectStore('settings').delete('wordDelays');
         
         transaction.oncomplete = () => {
             alert('All data has been cleared!');
@@ -879,6 +882,177 @@ function make(tag, attrs) {
     return el;
 }
 
+// --- Keystroke pair delays --------------------------------------------------
+// Histogram of delays between consecutive keystrokes, keyed by the exact
+// two-character pair typed (case-sensitive). Each value is a 17-bin array:
+// bins 0-15 cover [0-25) ... [375-400) ms, bin 16 is "400ms and above".
+// Written by app.js under the 'charPairDelays' key of the settings store.
+const CHAR_PAIR_BIN_SIZE = 25;
+const CHAR_PAIR_BIN_COUNT = 17;
+
+async function getCharPairDelays() {
+    return new Promise((resolve) => {
+        let transaction;
+        try {
+            transaction = db.transaction(['settings'], 'readonly');
+        } catch (e) {
+            resolve({});
+            return;
+        }
+        const request = transaction.objectStore('settings').get('charPairDelays');
+        request.onsuccess = () => {
+            const stored = request.result?.value;
+            resolve((stored && typeof stored === 'object') ? stored : {});
+        };
+        request.onerror = () => resolve({});
+    });
+}
+
+// Written by app.js under the 'wordDelays' key of the settings store.
+async function getWordDelays() {
+    return new Promise((resolve) => {
+        let transaction;
+        try {
+            transaction = db.transaction(['settings'], 'readonly');
+        } catch (e) {
+            resolve({});
+            return;
+        }
+        const request = transaction.objectStore('settings').get('wordDelays');
+        request.onsuccess = () => {
+            const stored = request.result?.value;
+            resolve((stored && typeof stored === 'object') ? stored : {});
+        };
+        request.onerror = () => resolve({});
+    });
+}
+
+// Midpoint of each bin, used to turn the histogram back into an average.
+// The overflow bin (400ms+) has no real upper bound, so its midpoint is a
+// rough placeholder rather than a precise value.
+function binMidpoint(binIndex) {
+    if (binIndex >= CHAR_PAIR_BIN_COUNT - 1) return 450;
+    return binIndex * CHAR_PAIR_BIN_SIZE + CHAR_PAIR_BIN_SIZE / 2;
+}
+
+// Table of every typed character pair, with its approximate average delay.
+// Sortable by count or by average delay, like the word statistics table.
+async function displayPairDelayTable() {
+    const container = document.getElementById('pair-delay-table');
+    if (!container) return;
+
+    const stored = await getCharPairDelays();
+    const rows = binsToRows(stored, pair => `'${pair.replace(/ /g, '\u23b5')}'`);
+    if (rows.length === 0) {
+        container.innerHTML = '<p class="empty-state">No keystroke timing recorded yet.</p>';
+        return;
+    }
+
+    renderDelayTable(container, rows, 'Pair');
+}
+
+// Same idea, but one average per word instead of per character pair.
+async function displayWordDelayTable() {
+    const container = document.getElementById('word-delay-table');
+    if (!container) return;
+
+    const stored = await getWordDelays();
+    const rows = binsToRows(stored, word => `'${word}'`);
+    if (rows.length === 0) {
+        container.innerHTML = '<p class="empty-state">No word timing recorded yet.</p>';
+        return;
+    }
+
+    renderDelayTable(container, rows, 'Word');
+}
+
+// Turn a { key: [bins...] } record into [{ label, count, avgDelay }], using
+// `formatLabel` to render the key (e.g. quoting it, or swapping space for a
+// visible glyph).
+function binsToRows(stored, formatLabel) {
+    return Object.entries(stored).map(([key, bins]) => {
+        let count = 0;
+        let weightedSum = 0;
+        for (let i = 0; i < CHAR_PAIR_BIN_COUNT; i++) {
+            const n = bins[i] || 0;
+            count += n;
+            weightedSum += n * binMidpoint(i);
+        }
+        return {
+            label: formatLabel(key),
+            count,
+            avgDelay: count > 0 ? weightedSum / count : 0
+        };
+    }).filter(r => r.count > 0);
+}
+
+// Render a sortable { label, avgDelay, count } table, reusing the .word-table
+// styling. Shared by the pair-delay and word-delay sections.
+function renderDelayTable(container, rows, labelColumnTitle) {
+    let currentSort = { column: 'count', ascending: false };
+
+    function renderTable(sortColumn, ascending) {
+        const sorted = [...rows].sort((a, b) => {
+            if (sortColumn === 'label') {
+                return ascending ? a.label.localeCompare(b.label) : b.label.localeCompare(a.label);
+            }
+            return ascending ? a[sortColumn] - b[sortColumn] : b[sortColumn] - a[sortColumn];
+        });
+
+        container.innerHTML = '';
+        const table = document.createElement('table');
+        table.classList.add('word-table');
+
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        const columns = [
+            { key: 'label', label: labelColumnTitle },
+            { key: 'avgDelay', label: 'Avg Delay (ms)' },
+            { key: 'count', label: 'Count' }
+        ];
+        columns.forEach(col => {
+            const th = document.createElement('th');
+            th.classList.add('sortable');
+            if (sortColumn === col.key) {
+                th.classList.add('sorted');
+                th.classList.add(ascending ? 'asc' : 'desc');
+            }
+            th.textContent = col.label + ' ';
+            const arrow = document.createElement('span');
+            arrow.classList.add('sort-arrow');
+            arrow.textContent = sortColumn === col.key ? (ascending ? '▲' : '▼') : '⇅';
+            th.appendChild(arrow);
+            th.addEventListener('click', () => {
+                const newAscending = sortColumn === col.key ? !ascending : false;
+                currentSort = { column: col.key, ascending: newAscending };
+                renderTable(col.key, newAscending);
+            });
+            headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        sorted.forEach(row => {
+            const tr = document.createElement('tr');
+            const labelCell = document.createElement('td');
+            labelCell.textContent = row.label;
+            tr.appendChild(labelCell);
+            const delayCell = document.createElement('td');
+            delayCell.textContent = row.avgDelay.toFixed(0);
+            tr.appendChild(delayCell);
+            const countCell = document.createElement('td');
+            countCell.textContent = String(row.count);
+            tr.appendChild(countCell);
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        container.appendChild(table);
+    }
+
+    renderTable(currentSort.column, currentSort.ascending);
+}
+
 // Each completed Sprint test stores { wpm, accuracy } (accuracy in 0..1) under
 // the 'sprintRuns' key of the settings store, written by app.js.
 async function getSprintRuns() {
@@ -1089,6 +1263,8 @@ async function init() {
     await displaySprintScatter();
     await displayCharDistribution();
     await displayCharErrorRate();
+    await displayPairDelayTable();
+    await displayWordDelayTable();
     await displayWordProblems();
     await displayWordTable();
     

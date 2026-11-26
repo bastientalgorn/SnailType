@@ -48,6 +48,22 @@
             </section>
             
             <section class="stats-section">
+                <h2>Keystroke Pair Delays</h2>
+                <p class="section-hint">Average delay between two consecutive keystrokes, for each pair you've typed. Case-sensitive; pairs around a backspace are not counted.</p>
+                <div id="pair-delay-table" class="word-table-container">
+                    <p class="empty-state">No keystroke timing recorded yet.</p>
+                </div>
+            </section>
+            
+            <section class="stats-section">
+                <h2>Word Pace</h2>
+                <p class="section-hint">Average time between the first and last keystroke of each word, divided by the number of letters minus one. Case-sensitive; backspaces don't affect the count, only the first time each position is reached.</p>
+                <div id="word-delay-table" class="word-table-container">
+                    <p class="empty-state">No word timing recorded yet.</p>
+                </div>
+            </section>
+            
+            <section class="stats-section">
                 <h2>Top 20 Most Problematic Words</h2>
                 <div id="word-problems" class="word-problems">
                     <p class="empty-state">No word statistics recorded yet.</p>
