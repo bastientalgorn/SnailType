@@ -1108,20 +1108,24 @@ class TypingTest {
                 // the clock, its last keystroke (the first time this specific
                 // occurrence reaches full length) stops it. Backspacing around
                 // within the word doesn't affect this — only those two events
-                // matter, and only their first occurrence each.
-                for (let w = 0; w < this.wordRanges.length; w++) {
-                    const range = this.wordRanges[w];
-                    if (currentIndex === range.start && this.wordStartTime[w] === null) {
-                        this.wordStartTime[w] = now;
-                    }
-                    if (currentIndex === range.end - 1 && this.wordStartTime[w] !== null && !this.wordEndRecorded[w]) {
-                        this.wordEndRecorded[w] = true;
-                        const word = this.words[w];
-                        if (word.length > 1) {
-                            const interval = (now - this.wordStartTime[w]) / (word.length - 1);
-                            const wordBins = this.wordDelayCounts[word] || new Array(CHAR_PAIR_BIN_COUNT).fill(0);
-                            wordBins[delayToBinIndex(interval)]++;
-                            this.wordDelayCounts[word] = wordBins;
+                // matter, and only their first occurrence each. Skipped in
+                // Chords mode, since its single-word, roll-only test pattern
+                // doesn't represent normal typing pace.
+                if (ACTIVE_MODE_KEY !== 'chords') {
+                    for (let w = 0; w < this.wordRanges.length; w++) {
+                        const range = this.wordRanges[w];
+                        if (currentIndex === range.start && this.wordStartTime[w] === null) {
+                            this.wordStartTime[w] = now;
+                        }
+                        if (currentIndex === range.end - 1 && this.wordStartTime[w] !== null && !this.wordEndRecorded[w]) {
+                            this.wordEndRecorded[w] = true;
+                            const word = this.words[w];
+                            if (word.length > 1) {
+                                const interval = (now - this.wordStartTime[w]) / (word.length - 1);
+                                const wordBins = this.wordDelayCounts[word] || new Array(CHAR_PAIR_BIN_COUNT).fill(0);
+                                wordBins[delayToBinIndex(interval)]++;
+                                this.wordDelayCounts[word] = wordBins;
+                            }
                         }
                     }
                 }
