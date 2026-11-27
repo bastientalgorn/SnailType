@@ -427,11 +427,15 @@ main {
 .word-table th:nth-child(4),
 .word-table th:nth-child(5),
 .word-table th:nth-child(6),
+.word-table th:nth-child(7),
+.word-table th:nth-child(8),
 .word-table td:nth-child(2),
 .word-table td:nth-child(3),
 .word-table td:nth-child(4),
 .word-table td:nth-child(5),
-.word-table td:nth-child(6) {
+.word-table td:nth-child(6),
+.word-table td:nth-child(7),
+.word-table td:nth-child(8) {
     text-align: right;
 }
 

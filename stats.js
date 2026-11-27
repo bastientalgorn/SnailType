@@ -393,6 +393,18 @@ async function displayWordTable() {
     
     // Import WORDS for frequency lookup
     const { WORDS } = await import('./words.js');
+
+    // Word pace is stored case-sensitively (e.g. "The" vs "the"), but this
+    // table is keyed by lowercase word like wordStats, so merge every case
+    // variant's histogram together before computing an average.
+    const wordDelays = await getWordDelays();
+    const delayBinsByLowerWord = {};
+    for (const [key, bins] of Object.entries(wordDelays)) {
+        const lower = key.toLowerCase();
+        const existing = delayBinsByLowerWord[lower] || new Array(CHAR_PAIR_BIN_COUNT).fill(0);
+        for (let i = 0; i < CHAR_PAIR_BIN_COUNT; i++) existing[i] += bins[i] || 0;
+        delayBinsByLowerWord[lower] = existing;
+    }
     
     // Calculate statistics for all words
     const wordData = [];
@@ -405,13 +417,34 @@ async function displayWordTable() {
             const probaFail = (failures / totalAttempts) * 100;
             const probaFailFreq = probaFail * frequency;
 
+            const bins = delayBinsByLowerWord[word.toLowerCase()];
+            let avgDelay = null;
+            let wpm = null;
+            if (bins) {
+                let count = 0;
+                let weightedSum = 0;
+                for (let i = 0; i < CHAR_PAIR_BIN_COUNT; i++) {
+                    const n = bins[i] || 0;
+                    count += n;
+                    weightedSum += n * binMidpoint(i);
+                }
+                if (count > 0) {
+                    avgDelay = weightedSum / count;
+                    // One keystroke every avgDelay ms -> (60000 / avgDelay)
+                    // keystrokes/minute -> standard WPM is that divided by 5.
+                    wpm = (60000 / avgDelay) / 5;
+                }
+            }
+
             wordData.push({
                 word,
                 success: successes,
                 failure: failures,
                 frequency,
                 probaFail,
-                probaFailFreq
+                probaFailFreq,
+                avgDelay,
+                wpm
             });
         }
     }    // Sort state
@@ -428,6 +461,12 @@ async function displayWordTable() {
             if (sortColumn === 'word') {
                 return ascending ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
             }
+
+            // Words with no recorded pace data (null) always sort last,
+            // regardless of sort direction.
+            if (aVal === null && bVal === null) return 0;
+            if (aVal === null) return 1;
+            if (bVal === null) return -1;
             
             // Numeric comparison for other columns
             return ascending ? aVal - bVal : bVal - aVal;
@@ -448,7 +487,9 @@ async function displayWordTable() {
             { key: 'failure', label: 'Fail' },
             { key: 'frequency', label: 'Frequency' },
             { key: 'probaFail', label: 'Proba Fail (%)' },
-            { key: 'probaFailFreq', label: 'Proba Fail × Frequency' }
+            { key: 'probaFailFreq', label: 'Proba Fail × Frequency' },
+            { key: 'avgDelay', label: 'Avg Delay (ms)' },
+            { key: 'wpm', label: 'WPM' }
         ];
         
         columns.forEach(col => {
@@ -518,6 +559,14 @@ async function displayWordTable() {
             const probaFailFreqCell = document.createElement('td');
             probaFailFreqCell.textContent = item.probaFailFreq.toExponential(2);
             row.appendChild(probaFailFreqCell);
+
+            const avgDelayCell = document.createElement('td');
+            avgDelayCell.textContent = item.avgDelay === null ? '-' : item.avgDelay.toFixed(0);
+            row.appendChild(avgDelayCell);
+
+            const wpmCell = document.createElement('td');
+            wpmCell.textContent = item.wpm === null ? '-' : item.wpm.toFixed(1);
+            row.appendChild(wpmCell);
             
             tbody.appendChild(row);
         }
@@ -708,6 +757,27 @@ async function getCharPairDelays() {
             return;
         }
         const request = transaction.objectStore('settings').get('charPairDelays');
+        request.onsuccess = () => {
+            const stored = request.result?.value;
+            resolve((stored && typeof stored === 'object') ? stored : {});
+        };
+        request.onerror = () => resolve({});
+    });
+}
+
+// Same shape as charPairDelays, but keyed by the word exactly as typed
+// (case-sensitive), one histogram of per-keystroke pace per word. Written by
+// app.js under the 'wordDelays' key of the settings store.
+async function getWordDelays() {
+    return new Promise((resolve) => {
+        let transaction;
+        try {
+            transaction = db.transaction(['settings'], 'readonly');
+        } catch (e) {
+            resolve({});
+            return;
+        }
+        const request = transaction.objectStore('settings').get('wordDelays');
         request.onsuccess = () => {
             const stored = request.result?.value;
             resolve((stored && typeof stored === 'object') ? stored : {});
