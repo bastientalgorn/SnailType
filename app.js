@@ -667,6 +667,9 @@ class TypingTest {
         this.wordStartTime = [];
         this.wordEndRecorded = [];
         this.wordDelayCounts = {};
+        // Debug-only log of every closed word occurrence this attempt (correct
+        // or not), rebuilt fresh each attempt. Not persisted anywhere.
+        this.wordPaceLog = [];
         
         this.inputElement = document.getElementById('typing-input');
         this.resultsElement = document.getElementById('results');
@@ -804,13 +807,23 @@ class TypingTest {
         return true;
     }
 
-    // Character ranges [start, end) of each word occurrence within targetText
+    // Pace-tracking range for each word occurrence within targetText.
+    // headPos is the char just before the word (or the word's own first
+    // char, if the word is at the very start of the string); trailPos is the
+    // char just after the word (or the word's own last char, if the word is
+    // at the very end of the string). numIntervals is the number of
+    // keystroke-to-keystroke gaps between headPos and trailPos inclusive —
+    // 0 only when a single-letter word has no char before or after it at all,
+    // in which case the occurrence is skipped entirely (nothing to measure).
     computeWordRanges() {
         const ranges = [];
         let charIndex = 0;
         for (const word of this.words) {
+            const start = charIndex;
             const end = charIndex + word.length;
-            ranges.push({ start: charIndex, end });
+            const headPos = start > 0 ? start - 1 : start;
+            const trailPos = end < this.targetText.length ? end : end - 1;
+            ranges.push({ start, end, headPos, trailPos, numIntervals: trailPos - headPos });
             charIndex = end + 1;  // +1 for the space
         }
         return ranges;
@@ -902,6 +915,41 @@ class TypingTest {
         block.appendChild(spacer);
     }
 
+    // Render the per-word pace debug block: one line per word occurrence
+    // closed so far this attempt, showing the exact head-char-to-trail-char
+    // span, the total time, the number of intervals, and the average per
+    // interval. Mirrors renderKeyLog()'s structure/placement.
+    renderWordPaceDebug() {
+        const statsDiv = document.getElementById('debug-display');
+        if (!statsDiv) return;
+
+        let block = statsDiv.querySelector('#word-pace-log');
+        if (!block) {
+            block = document.createElement('div');
+            block.id = 'word-pace-log';
+            block.classList.add('stat-line');
+            statsDiv.insertBefore(block, statsDiv.firstChild);
+        }
+
+        block.innerHTML = '';
+
+        const title = document.createElement('div');
+        title.textContent = '=== WORD PACE ===';
+        block.appendChild(title);
+
+        const lines = this.wordPaceLog.map(entry => {
+            const flag = entry.correct ? '' : ' [wrong]';
+            return `"${entry.label}" total=${entry.total.toFixed(0)}ms intervals=${entry.numIntervals} avg=${entry.avg.toFixed(1)}ms${flag}`;
+        });
+        const body = document.createElement('div');
+        body.textContent = lines.length > 0 ? lines.join('\n') : '(none yet)';
+        block.appendChild(body);
+
+        const spacer2 = document.createElement('div');
+        spacer2.textContent = '\u00a0';
+        block.appendChild(spacer2);
+    }
+
     async displayInitialWordStats() {
         const statsDiv = document.getElementById('debug-display');
         statsDiv.innerHTML = '';
@@ -966,6 +1014,7 @@ class TypingTest {
         statsDiv.appendChild(statLine);
 
         this.renderKeyLog();
+        this.renderWordPaceDebug();
     }
     
     async startNewTest() {
@@ -1010,6 +1059,7 @@ class TypingTest {
         this.wordStartTime = new Array(this.words.length).fill(null);
         this.wordEndRecorded = new Array(this.words.length).fill(false);
         this.wordDelayCounts = {};
+        this.wordPaceLog = [];
         
         this.inputElement.value = '';
         this.inputElement.disabled = false;
@@ -1104,26 +1154,50 @@ class TypingTest {
                 this.lastKeystrokeTime = now;
                 this.lastKeystrokeChar = typedChar;
 
-                // Per-word pace: first keystroke of a word occurrence starts
-                // the clock, its last keystroke (the first time this specific
-                // occurrence reaches full length) stops it. Backspacing around
-                // within the word doesn't affect this — only those two events
-                // matter, and only their first occurrence each. Skipped in
-                // Chords mode, since its single-word, roll-only test pattern
-                // doesn't represent normal typing pace.
+                // Per-word pace: the clock starts the first time the cursor
+                // reaches headPos (the char right before the word, or the
+                // word's own first char if it's the first word) and the
+                // word is "closed" the first time the cursor reaches trailPos
+                // (the char right after the word, or the word's own last char
+                // if it's the last word) — whether or not that attempt was
+                // correct. A data point is only recorded if every char from
+                // headPos to trailPos is correct *at that moment* (a word
+                // fixed via backspace still counts, slowness and all; a word
+                // left wrong at that point is silently dropped, and walking
+                // back into an already-closed word never re-opens it).
+                // Skipped in Chords mode, since its single-word, roll-only
+                // test pattern doesn't represent normal typing pace.
                 if (ACTIVE_MODE_KEY !== 'chords') {
                     for (let w = 0; w < this.wordRanges.length; w++) {
                         const range = this.wordRanges[w];
-                        if (currentIndex === range.start && this.wordStartTime[w] === null) {
+                        if (range.numIntervals <= 0) continue;
+
+                        if (currentIndex === range.headPos && this.wordStartTime[w] === null) {
                             this.wordStartTime[w] = now;
                         }
-                        if (currentIndex === range.end - 1 && this.wordStartTime[w] !== null && !this.wordEndRecorded[w]) {
+
+                        if (currentIndex === range.trailPos && this.wordStartTime[w] !== null && !this.wordEndRecorded[w]) {
                             this.wordEndRecorded[w] = true;
-                            const word = this.words[w];
-                            if (word.length > 1) {
-                                const interval = (now - this.wordStartTime[w]) / (word.length - 1);
+
+                            let allCorrect = true;
+                            for (let i = range.headPos; i <= range.trailPos; i++) {
+                                if (this.typedText[i] !== this.targetText[i]) { allCorrect = false; break; }
+                            }
+
+                            const total = now - this.wordStartTime[w];
+                            const avg = total / range.numIntervals;
+                            this.wordPaceLog.push({
+                                label: this.targetText.slice(range.headPos, range.trailPos + 1),
+                                total,
+                                numIntervals: range.numIntervals,
+                                avg,
+                                correct: allCorrect
+                            });
+
+                            if (allCorrect) {
+                                const word = this.words[w];
                                 const wordBins = this.wordDelayCounts[word] || new Array(CHAR_PAIR_BIN_COUNT).fill(0);
-                                wordBins[delayToBinIndex(interval)]++;
+                                wordBins[delayToBinIndex(avg)]++;
                                 this.wordDelayCounts[word] = wordBins;
                             }
                         }
@@ -1138,6 +1212,7 @@ class TypingTest {
         }
         
         this.renderTarget();
+        this.renderWordPaceDebug();
         
         // Check if test is complete
         if (this.typedText.length === this.targetText.length && this.typedText === this.targetText) {
@@ -1276,6 +1351,7 @@ class TypingTest {
                 this.lastKeystrokeChar = null;
                 this.wordStartTime = new Array(this.words.length).fill(null);
                 this.wordEndRecorded = new Array(this.words.length).fill(false);
+                this.wordPaceLog = [];
                 this.inputElement.value = '';
                 this.inputElement.disabled = false;
                 this.inputElement.focus();
@@ -1283,6 +1359,7 @@ class TypingTest {
                 this.resultsElement.className = 'results';
                 this.renderTarget();
                 this.renderKeyLog();
+                this.renderWordPaceDebug();
             }, 300);
         } else {
             // Normal mode or test passed: wait for Enter key to proceed
@@ -1315,6 +1392,7 @@ class TypingTest {
                             this.lastKeystrokeChar = null;
                             this.wordStartTime = new Array(this.words.length).fill(null);
                             this.wordEndRecorded = new Array(this.words.length).fill(false);
+                            this.wordPaceLog = [];
                             this.inputElement.value = '';
                             this.inputElement.disabled = false;
                             this.inputElement.focus();
@@ -1322,6 +1400,7 @@ class TypingTest {
                             this.resultsElement.className = 'results';
                             this.renderTarget();
                             this.renderKeyLog();
+                            this.renderWordPaceDebug();
                         }
                     }
                 }
