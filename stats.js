@@ -857,6 +857,7 @@ async function displayPairHeatmap() {
         }
         cells.set(first + '\u0000' + second, {
             avg: count > 0 ? weightedSum / count : 0,
+            median: binsPercentile(bins, 0.5),
             p20: binsPercentile(bins, 0.2),
             count,
             bins
@@ -906,7 +907,7 @@ async function displayPairHeatmap() {
                     td.classList.add('heatmap-empty');
                     td.textContent = '';
                 } else {
-                    const value = metric === 'p20' ? cell.p20 : cell.avg;
+                    const value = metric === 'median' ? cell.median : metric === 'p20' ? cell.p20 : cell.avg;
                     td.style.backgroundColor = delayToColor(value);
                     td.textContent = value.toFixed(0);
 
@@ -914,7 +915,7 @@ async function displayPairHeatmap() {
                     td.addEventListener('mouseenter', () => {
                         tooltip.innerHTML = '';
                         const title = document.createElement('div');
-                        title.innerHTML = `<strong>${pairLabel}</strong> — avg ${cell.avg.toFixed(0)}ms, p20 ${cell.p20.toFixed(0)}ms (n=${Math.round(cell.count)})`;
+                        title.innerHTML = `<strong>${pairLabel}</strong> — avg ${cell.avg.toFixed(0)}ms, median ${cell.median.toFixed(0)}ms, p20 ${cell.p20.toFixed(0)}ms (n=${Math.round(cell.count)})`;
                         tooltip.appendChild(title);
                         tooltip.appendChild(buildMiniHistogram(cell.bins));
                         tooltip.style.display = 'block';
@@ -952,7 +953,9 @@ async function displayPairHeatmap() {
 // heatmap tooltip to show the full distribution behind a single average.
 function buildMiniHistogram(bins) {
     const width = 220;
-    const height = 70;
+    const barsHeight = 70;
+    const labelHeight = 14;
+    const height = barsHeight + labelHeight;
     const barGap = 1;
     const barWidth = (width - barGap * (CHAR_PAIR_BIN_COUNT - 1)) / CHAR_PAIR_BIN_COUNT;
     const maxCount = Math.max(...bins, 1);
@@ -964,16 +967,30 @@ function buildMiniHistogram(bins) {
 
     for (let i = 0; i < CHAR_PAIR_BIN_COUNT; i++) {
         const n = bins[i] || 0;
-        const barHeight = (n / maxCount) * (height - 2);
+        const barHeight = (n / maxCount) * (barsHeight - 2);
         const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
         rect.setAttribute('x', i * (barWidth + barGap));
-        rect.setAttribute('y', height - barHeight);
+        rect.setAttribute('y', barsHeight - barHeight);
         rect.setAttribute('width', barWidth);
         rect.setAttribute('height', barHeight);
         rect.setAttribute('fill', '#64B5F6');
         svg.appendChild(rect);
+
+        // Label every other bin's lower edge (in ms) so the axis stays
+        // readable without the text overlapping at this width.
+        if (i % 2 === 0) {
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('x', i * (barWidth + barGap) + barWidth / 2);
+            label.setAttribute('y', height - 2);
+            label.setAttribute('text-anchor', 'middle');
+            label.setAttribute('font-size', '8');
+            label.setAttribute('fill', '#ccc');
+            label.textContent = String(i * CHAR_PAIR_BIN_SIZE);
+            svg.appendChild(label);
+        }
     }
     return svg;
+}
 }
 
 // Each completed Sprint test stores { wpm, accuracy } (accuracy in 0..1) under
