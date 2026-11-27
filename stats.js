@@ -951,6 +951,131 @@ async function displayPairDelayTable() {
     renderDelayTable(container, rows, 'Pair');
 }
 
+// Value at the given percentile (0..1) of a binned histogram, assuming a
+// uniform distribution of data points within each bin. `p = 0.2` means
+// "20% of data points are below the returned value".
+function binsPercentile(bins, p) {
+    let total = 0;
+    for (let i = 0; i < CHAR_PAIR_BIN_COUNT; i++) total += bins[i] || 0;
+    if (total <= 0) return 0;
+
+    const target = total * p;
+    let cumulative = 0;
+    for (let i = 0; i < CHAR_PAIR_BIN_COUNT; i++) {
+        const n = bins[i] || 0;
+        if (cumulative + n >= target) {
+            const fracInBin = n > 0 ? (target - cumulative) / n : 0;
+            return i * CHAR_PAIR_BIN_SIZE + fracInBin * CHAR_PAIR_BIN_SIZE;
+        }
+        cumulative += n;
+    }
+    return (CHAR_PAIR_BIN_COUNT - 1) * CHAR_PAIR_BIN_SIZE;
+}
+
+// Map a delay in ms to a green (fast) -> red (slow) color. The domain is
+// fixed rather than relative to the current data, so colors stay meaningful
+// as you compare the page across sessions.
+const HEATMAP_MIN_MS = 50;
+const HEATMAP_MAX_MS = 350;
+function delayToColor(ms) {
+    const t = Math.max(0, Math.min(1, (ms - HEATMAP_MIN_MS) / (HEATMAP_MAX_MS - HEATMAP_MIN_MS)));
+    const hue = 120 * (1 - t); // 120 = green, 0 = red
+    return `hsl(${hue}, 70%, 45%)`;
+}
+
+// Letter-pair heatmap: rows are the first letter typed, columns are the
+// second letter, each cell showing either the average delay or the 20th
+// percentile delay for that pair (chosen via the radio buttons).
+async function displayPairHeatmap() {
+    const container = document.getElementById('pair-heatmap');
+    if (!container) return;
+
+    const stored = await getCharPairDelays();
+    const pairs = Object.entries(stored).filter(([key, bins]) => key.length === 2 && bins.some(n => n > 0));
+    if (pairs.length === 0) {
+        container.innerHTML = '<p class="empty-state">No keystroke timing recorded yet.</p>';
+        return;
+    }
+
+    const firstChars = new Set();
+    const secondChars = new Set();
+    const cells = new Map();
+    for (const [key, bins] of pairs) {
+        const first = key[0];
+        const second = key[1];
+        firstChars.add(first);
+        secondChars.add(second);
+        let count = 0;
+        let weightedSum = 0;
+        for (let i = 0; i < CHAR_PAIR_BIN_COUNT; i++) {
+            const n = bins[i] || 0;
+            count += n;
+            weightedSum += n * binMidpoint(i);
+        }
+        cells.set(first + '\u0000' + second, {
+            avg: count > 0 ? weightedSum / count : 0,
+            p20: binsPercentile(bins, 0.2),
+            count
+        });
+    }
+
+    const rows = [...firstChars].sort();
+    const cols = [...secondChars].sort();
+
+    function renderGrid(metric) {
+        container.innerHTML = '';
+        const table = document.createElement('table');
+        table.classList.add('heatmap-table');
+
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        const corner = document.createElement('th');
+        corner.classList.add('heatmap-corner');
+        headerRow.appendChild(corner);
+        cols.forEach(c => {
+            const th = document.createElement('th');
+            th.textContent = c === ' ' ? '\u23b5' : c;
+            headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        rows.forEach(r => {
+            const tr = document.createElement('tr');
+            const rowHeader = document.createElement('th');
+            rowHeader.textContent = r === ' ' ? '\u23b5' : r;
+            tr.appendChild(rowHeader);
+            cols.forEach(c => {
+                const td = document.createElement('td');
+                const cell = cells.get(r + '\u0000' + c);
+                if (!cell) {
+                    td.classList.add('heatmap-empty');
+                    td.textContent = '';
+                } else {
+                    const value = metric === 'p20' ? cell.p20 : cell.avg;
+                    td.style.backgroundColor = delayToColor(value);
+                    td.textContent = value.toFixed(0);
+                    td.title = `${r}${c}: ${value.toFixed(0)}ms (n=${Math.round(cell.count)})`;
+                }
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        container.appendChild(table);
+    }
+
+    const radios = document.querySelectorAll('input[name="heatmap-metric"]');
+    radios.forEach(radio => {
+        radio.addEventListener('change', () => {
+            if (radio.checked) renderGrid(radio.value);
+        });
+    });
+    const checked = document.querySelector('input[name="heatmap-metric"]:checked');
+    renderGrid(checked ? checked.value : 'avg');
+}
+
 // Same idea, but one average per word instead of per character pair.
 async function displayWordDelayTable() {
     const container = document.getElementById('word-delay-table');
@@ -1042,7 +1167,7 @@ function renderDelayTable(container, rows, labelColumnTitle) {
             delayCell.textContent = row.avgDelay.toFixed(0);
             tr.appendChild(delayCell);
             const countCell = document.createElement('td');
-            countCell.textContent = String(row.count);
+            countCell.textContent = String(Math.round(row.count));
             tr.appendChild(countCell);
             tbody.appendChild(tr);
         });
@@ -1264,6 +1389,7 @@ async function init() {
     await displayCharDistribution();
     await displayCharErrorRate();
     await displayPairDelayTable();
+    await displayPairHeatmap();
     await displayWordDelayTable();
     await displayWordProblems();
     await displayWordTable();

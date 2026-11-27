@@ -456,11 +456,18 @@ async function loadCharPairDelays() {
 
 // Merge one test's locally-accumulated pair counts into the stored totals.
 // `counts` is { pair: [bin0, bin1, ...] }, same shape as the stored record.
+// N is the target sample size per key: once a key's histogram overflows it,
+// old bins are decayed by (N-1)/N so recent data carries more weight and
+// the histogram doesn't grow without bound. Only keys touched by this test
+// are decayed - a pair/word you haven't typed in a while keeps its old data.
+const CHAR_PAIR_DECAY_N = 1000;
+const WORD_DELAY_DECAY_N = 100;
+
 async function mergeCharPairDelays(counts) {
     if (!counts || Object.keys(counts).length === 0) return;
 
     const stored = await loadCharPairDelays();
-    mergeBinCounts(stored, counts);
+    mergeBinCounts(stored, counts, CHAR_PAIR_DECAY_N);
     await saveSetting('charPairDelays', stored);
 }
 
@@ -468,11 +475,20 @@ async function clearCharPairDelays() {
     await saveSetting('charPairDelays', {});
 }
 
-// Add `counts` (key -> bins) into `stored` (key -> bins) in place
-function mergeBinCounts(stored, counts) {
+// Add `counts` (key -> bins) into `stored` (key -> bins) in place, then
+// decay keys whose total exceeds N so old data gradually loses weight.
+function mergeBinCounts(stored, counts, N) {
     for (const [key, bins] of Object.entries(counts)) {
         const existing = stored[key] || new Array(CHAR_PAIR_BIN_COUNT).fill(0);
         for (let i = 0; i < CHAR_PAIR_BIN_COUNT; i++) existing[i] += bins[i] || 0;
+
+        let sum = 0;
+        for (let i = 0; i < CHAR_PAIR_BIN_COUNT; i++) sum += existing[i];
+        if (sum > N) {
+            const factor = (N - 1) / N;
+            for (let i = 0; i < CHAR_PAIR_BIN_COUNT; i++) existing[i] *= factor;
+        }
+
         stored[key] = existing;
     }
 }
@@ -498,7 +514,7 @@ async function mergeWordDelays(counts) {
     if (!counts || Object.keys(counts).length === 0) return;
 
     const stored = await loadWordDelays();
-    mergeBinCounts(stored, counts);
+    mergeBinCounts(stored, counts, WORD_DELAY_DECAY_N);
     await saveSetting('wordDelays', stored);
 }
 

@@ -54,6 +54,18 @@
                     <p class="empty-state">No keystroke timing recorded yet.</p>
                 </div>
             </section>
+
+            <section class="stats-section">
+                <h2>Letter Pair Heatmap</h2>
+                <p class="section-hint">Delay from the first letter (row) to the second letter (column) of each pair you've typed. Green is fast, red is slow.</p>
+                <div class="heatmap-controls">
+                    <label><input type="radio" name="heatmap-metric" value="avg" checked> Average</label>
+                    <label><input type="radio" name="heatmap-metric" value="p20"> 20th percentile</label>
+                </div>
+                <div id="pair-heatmap" class="heatmap-container">
+                    <p class="empty-state">No keystroke timing recorded yet.</p>
+                </div>
+            </section>
             
             <section class="stats-section">
                 <h2>Word Pace</h2>
