@@ -1015,15 +1015,25 @@ async function displayPairHeatmap() {
         cells.set(first + '\u0000' + second, {
             avg: count > 0 ? weightedSum / count : 0,
             p20: binsPercentile(bins, 0.2),
-            count
+            count,
+            bins
         });
     }
 
     const rows = [...firstChars].sort();
     const cols = [...secondChars].sort();
 
+    container.innerHTML = '';
+
+    const tooltip = document.createElement('div');
+    tooltip.classList.add('chart-tooltip', 'heatmap-tooltip');
+    tooltip.style.display = 'none';
+    container.appendChild(tooltip);
+
     function renderGrid(metric) {
-        container.innerHTML = '';
+        // Keep the tooltip, which lives alongside the table rather than
+        // inside it, so it survives the innerHTML reset below.
+        tooltip.style.display = 'none';
         const table = document.createElement('table');
         table.classList.add('heatmap-table');
 
@@ -1056,14 +1066,33 @@ async function displayPairHeatmap() {
                     const value = metric === 'p20' ? cell.p20 : cell.avg;
                     td.style.backgroundColor = delayToColor(value);
                     td.textContent = value.toFixed(0);
-                    td.title = `${r}${c}: ${value.toFixed(0)}ms (n=${Math.round(cell.count)})`;
+
+                    const pairLabel = `'${(r + c).replace(/ /g, '\u23b5')}'`;
+                    td.addEventListener('mouseenter', () => {
+                        tooltip.innerHTML = '';
+                        const title = document.createElement('div');
+                        title.innerHTML = `<strong>${pairLabel}</strong> — avg ${cell.avg.toFixed(0)}ms, p20 ${cell.p20.toFixed(0)}ms (n=${Math.round(cell.count)})`;
+                        tooltip.appendChild(title);
+                        tooltip.appendChild(buildMiniHistogram(cell.bins));
+                        tooltip.style.display = 'block';
+                    });
+                    td.addEventListener('mousemove', (e) => {
+                        tooltip.style.left = (e.clientX + 14) + 'px';
+                        tooltip.style.top = (e.clientY + 14) + 'px';
+                    });
+                    td.addEventListener('mouseleave', () => {
+                        tooltip.style.display = 'none';
+                    });
                 }
                 tr.appendChild(td);
             });
             tbody.appendChild(tr);
         });
         table.appendChild(tbody);
-        container.appendChild(table);
+        // Replace only the table, leave the tooltip element in place.
+        const oldTable = container.querySelector('table.heatmap-table');
+        if (oldTable) oldTable.remove();
+        container.insertBefore(table, tooltip);
     }
 
     const radios = document.querySelectorAll('input[name="heatmap-metric"]');
@@ -1074,6 +1103,34 @@ async function displayPairHeatmap() {
     });
     const checked = document.querySelector('input[name="heatmap-metric"]:checked');
     renderGrid(checked ? checked.value : 'avg');
+}
+
+// Small inline bar-chart SVG of a 17-bin delay histogram, used inside the
+// heatmap tooltip to show the full distribution behind a single average.
+function buildMiniHistogram(bins) {
+    const width = 220;
+    const height = 70;
+    const barGap = 1;
+    const barWidth = (width - barGap * (CHAR_PAIR_BIN_COUNT - 1)) / CHAR_PAIR_BIN_COUNT;
+    const maxCount = Math.max(...bins, 1);
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', width);
+    svg.setAttribute('height', height);
+    svg.classList.add('heatmap-mini-histogram');
+
+    for (let i = 0; i < CHAR_PAIR_BIN_COUNT; i++) {
+        const n = bins[i] || 0;
+        const barHeight = (n / maxCount) * (height - 2);
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', i * (barWidth + barGap));
+        rect.setAttribute('y', height - barHeight);
+        rect.setAttribute('width', barWidth);
+        rect.setAttribute('height', barHeight);
+        rect.setAttribute('fill', '#64B5F6');
+        svg.appendChild(rect);
+    }
+    return svg;
 }
 
 // Same idea, but one average per word instead of per character pair.

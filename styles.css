@@ -484,6 +484,15 @@ main {
     color: #555;
 }
 
+.heatmap-tooltip {
+    text-align: left;
+}
+
+.heatmap-mini-histogram {
+    display: block;
+    margin-top: 6px;
+}
+
 .char-chart,
 .word-chart {
     background-color: #1a1a1a;
