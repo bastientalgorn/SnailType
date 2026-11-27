@@ -991,7 +991,6 @@ function buildMiniHistogram(bins) {
     }
     return svg;
 }
-}
 
 // Each completed Sprint test stores { wpm, accuracy } (accuracy in 0..1) under
 // the 'sprintRuns' key of the settings store, written by app.js.
