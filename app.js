@@ -843,6 +843,7 @@ class TypingTest {
         if (this.progressRAF !== null) return;
         if (!this.progressBarEnabled()) {
             this.hideProgressBar();
+            this.renderProgressBarDebug();
             return;
         }
         const el = document.getElementById('progress-cursor');
@@ -886,9 +887,57 @@ class TypingTest {
         const containerRect = container.getBoundingClientRect();
 
         const left = r0.left + (r1.left - r0.left) * frac;
+        const top = r0.top - containerRect.top;
         el.style.left = `${left - containerRect.left}px`;
-        el.style.top = `${r0.top - containerRect.top}px`;
+        el.style.top = `${top}px`;
         el.style.height = `${r0.height}px`;
+
+        this.renderProgressBarDebug({
+            running: true,
+            elapsedSeconds,
+            charsPerSecond,
+            idx,
+            numChars: chars.length,
+            leftPx: left - containerRect.left,
+            topPx: top,
+            heightPx: r0.height
+        });
+    }
+
+    // Render a live debug block showing the progress bar's config and
+    // (while running) its computed position, so the option can be verified
+    // without guessing from the visuals alone.
+    renderProgressBarDebug(extra = {}) {
+        const statsDiv = document.getElementById('debug-display');
+        if (!statsDiv) return;
+
+        let block = statsDiv.querySelector('#progress-bar-debug');
+        if (!block) {
+            block = document.createElement('div');
+            block.id = 'progress-bar-debug';
+            block.classList.add('stat-line');
+            statsDiv.insertBefore(block, statsDiv.firstChild);
+        }
+
+        const lines = ['=== PROGRESS BAR ==='];
+        lines.push(`option: ${OPTIONS.progressBar}`);
+        lines.push(`targetWpm (minWpm): ${OPTIONS.minWpm}`);
+        lines.push(`enabled: ${this.progressBarEnabled()}`);
+        lines.push(`running (rAF active): ${this.progressRAF !== null}`);
+        lines.push(`startTime set: ${this.startTime !== null}`);
+        if (extra.running) {
+            lines.push(`elapsed: ${extra.elapsedSeconds.toFixed(2)}s`);
+            lines.push(`charsPerSecond: ${extra.charsPerSecond.toFixed(2)}`);
+            lines.push(`idx: ${extra.idx.toFixed(2)} / ${extra.numChars - 1}`);
+            lines.push(`position: left=${extra.leftPx.toFixed(0)}px top=${extra.topPx.toFixed(0)}px height=${extra.heightPx.toFixed(0)}px`);
+        }
+        if (!this.progressBarEnabled()) {
+            lines.push('(not shown: option is None, or target WPM is 0)');
+        } else if (this.startTime === null) {
+            lines.push('(not moving yet: waiting for first keystroke)');
+        }
+
+        block.textContent = lines.join('\n');
     }
 
     // Pace-tracking range for each word occurrence within targetText.
@@ -1099,6 +1148,7 @@ class TypingTest {
 
         this.renderKeyLog();
         this.renderWordPaceDebug();
+        this.renderProgressBarDebug();
     }
     
     async startNewTest() {
