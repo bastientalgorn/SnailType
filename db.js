@@ -21,7 +21,8 @@ const DEFAULT_MODES = {
             capitalize: 'no',
             normalizeErrorByLength: false,
             recordStats: true,
-            mixedModeCount: 1
+            mixedModeCount: 1,
+            progressBar: 'none'
         }
     },
     "general": {
@@ -41,7 +42,8 @@ const DEFAULT_MODES = {
             capitalize: 'no',
             normalizeErrorByLength: false,
             recordStats: true,
-            mixedModeCount: 2
+            mixedModeCount: 2,
+            progressBar: 'none'
         }
     },
     "targeted": {
@@ -61,7 +63,8 @@ const DEFAULT_MODES = {
             capitalize: 'no',
             normalizeErrorByLength: false,
             recordStats: true,
-            mixedModeCount: 5
+            mixedModeCount: 5,
+            progressBar: 'none'
         }
     },
     "drill": {
@@ -81,7 +84,8 @@ const DEFAULT_MODES = {
             capitalize: 'no',
             normalizeErrorByLength: false,
             recordStats: true,
-            mixedModeCount: 5
+            mixedModeCount: 5,
+            progressBar: 'none'
         }
     },
     "chords": {
@@ -101,7 +105,8 @@ const DEFAULT_MODES = {
             capitalize: 'no',
             normalizeErrorByLength: false,
             recordStats: false,
-            mixedModeCount: 10
+            mixedModeCount: 10,
+            progressBar: 'none'
         }
     },
     "slow": {
@@ -121,7 +126,8 @@ const DEFAULT_MODES = {
             capitalize: 'no',
             normalizeErrorByLength: false,
             recordStats: false,
-            mixedModeCount: 1
+            mixedModeCount: 1,
+            progressBar: 'none'
         }
     },
     "mixed": {
@@ -147,7 +153,8 @@ const OPTION_FIELDS = [
     { key: 'capitalize', type: 'enum', values: ['no', 'yes', 'random'] },
     { key: 'normalizeErrorByLength', type: 'boolean' },
     { key: 'recordStats', type: 'boolean' },
-    { key: 'mixedModeCount', type: 'number', min: 0, max: 100 }
+    { key: 'mixedModeCount', type: 'number', min: 0, max: 100 },
+    { key: 'progressBar', type: 'enum', values: ['none', 'cursor', 'deathwall'] }
 ];
 
 // Reference default options (first mode's options as fallback for any field)

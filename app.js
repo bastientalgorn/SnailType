@@ -670,6 +670,9 @@ class TypingTest {
         // Debug-only log of every closed word occurrence this attempt (correct
         // or not), rebuilt fresh each attempt. Not persisted anywhere.
         this.wordPaceLog = [];
+        // requestAnimationFrame handle for the progress bar animation loop,
+        // null when not running (before first keystroke, or test not active)
+        this.progressRAF = null;
         
         this.inputElement = document.getElementById('typing-input');
         this.resultsElement = document.getElementById('results');
@@ -804,7 +807,88 @@ class TypingTest {
         this.wordStartTime = new Array(this.words.length).fill(null);
         this.wordEndRecorded = new Array(this.words.length).fill(false);
         this.wordDelayCounts = {};
+        this.stopProgressBar();
+        this.hideProgressBar();
         return true;
+    }
+
+    // --- Progress bar (Cursor / Death wall) ---------------------------------
+    // Indicates where the user "should" be typing in order to reach the
+    // mode's target WPM. Hidden entirely when the mode's progressBar option
+    // is 'none' or the target WPM is 0 (or less). The cursor only starts
+    // moving once the user presses their first keystroke.
+
+    hideProgressBar() {
+        const el = document.getElementById('progress-cursor');
+        if (el) el.style.display = 'none';
+    }
+
+    stopProgressBar() {
+        if (this.progressRAF !== null) {
+            cancelAnimationFrame(this.progressRAF);
+            this.progressRAF = null;
+        }
+    }
+
+    // Returns true if a progress bar should be shown for the current options
+    progressBarEnabled() {
+        const mode = OPTIONS.progressBar;
+        const targetWpm = Number(OPTIONS.minWpm);
+        return !!mode && mode !== 'none' && Number.isFinite(targetWpm) && targetWpm > 0;
+    }
+
+    // Starts the animation loop (idempotent). Called once the first keystroke
+    // of an attempt has been registered.
+    startProgressBar() {
+        if (this.progressRAF !== null) return;
+        if (!this.progressBarEnabled()) {
+            this.hideProgressBar();
+            return;
+        }
+        const el = document.getElementById('progress-cursor');
+        if (el) el.style.display = '';
+        const loop = () => {
+            this.tickProgressBar();
+            this.progressRAF = requestAnimationFrame(loop);
+        };
+        this.progressRAF = requestAnimationFrame(loop);
+    }
+
+    // Move the cursor to the position the user should have reached by now,
+    // based on elapsed time since the first keystroke and the mode's target
+    // WPM. Only the 'cursor' style is implemented so far.
+    tickProgressBar() {
+        if (this.startTime === null) return;
+        const mode = OPTIONS.progressBar;
+        if (mode !== 'cursor') return;
+
+        const el = document.getElementById('progress-cursor');
+        const container = document.getElementById('test-display');
+        const targetDiv = document.getElementById('target-text');
+        if (!el || !container || !targetDiv) return;
+
+        const targetWpm = Number(OPTIONS.minWpm);
+        const charsPerSecond = (targetWpm * 5) / 60;
+        const elapsedSeconds = (Date.now() - this.startTime) / 1000;
+
+        const chars = targetDiv.querySelectorAll('.char');
+        if (chars.length === 0) return;
+
+        const maxIdx = chars.length - 1;
+        let idx = elapsedSeconds * charsPerSecond;
+        if (idx > maxIdx) idx = maxIdx;
+        if (idx < 0) idx = 0;
+
+        const floorIdx = Math.floor(idx);
+        const frac = idx - floorIdx;
+        const r0 = chars[floorIdx].getBoundingClientRect();
+        const r1 = chars[Math.min(floorIdx + 1, maxIdx)].getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+
+        const left = r0.left + (r1.left - r0.left) * frac;
+        el.style.left = `${left - containerRect.left}px`;
+        el.style.top = `${r0.top - containerRect.top}px`;
+        el.style.height = `${r0.height}px`;
     }
 
     // Pace-tracking range for each word occurrence within targetText.
@@ -1060,6 +1144,8 @@ class TypingTest {
         this.wordEndRecorded = new Array(this.words.length).fill(false);
         this.wordDelayCounts = {};
         this.wordPaceLog = [];
+        this.stopProgressBar();
+        this.hideProgressBar();
         
         this.inputElement.value = '';
         this.inputElement.disabled = false;
@@ -1127,6 +1213,7 @@ class TypingTest {
         // Start timer when typing begins (ensure it's always set)
         if (this.startTime === null && this.typedText.length > 0) {
             this.startTime = Date.now();
+            this.startProgressBar();
         }
         
         // Check current character
@@ -1222,6 +1309,8 @@ class TypingTest {
     
     async completeTest() {
         this.inputElement.disabled = true;
+        this.stopProgressBar();
+        this.hideProgressBar();
         
         // Ensure startTime is set (fallback to prevent undefined WPM)
         if (this.startTime === null) {

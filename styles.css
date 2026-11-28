@@ -165,6 +165,7 @@ main {
 
 /* Main page styles */
 .test-display {
+    position: relative;
     background-color: transparent;
     border-radius: 10px;
     padding: 30px;
@@ -173,6 +174,18 @@ main {
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+.progress-cursor {
+    position: absolute;
+    width: 2px;
+    background-color: #ffd700;
+    box-shadow: 0 0 6px #ffd700;
+    pointer-events: none;
+    top: 0;
+    left: 0;
+    border-radius: 1px;
+    z-index: 2;
 }
 
 .target-text {

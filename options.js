@@ -16,7 +16,8 @@ const OPTION_UI = {
     capitalize: { label: 'Capitalize', desc: 'Word capitalization', choices: [{ value: 'no', text: 'No' }, { value: 'yes', text: 'Yes' }, { value: 'random', text: 'Random' }] },
     normalizeErrorByLength: { label: 'Normalize Error by Length', desc: 'Divide error rate by word length', choices: [{ value: 'true', text: 'Yes' }, { value: 'false', text: 'No' }] },
     recordStats: { label: 'Record Stats', desc: 'Save this mode\'s results to your statistics. Turn off for pure practice modes.', choices: [{ value: 'true', text: 'Yes' }, { value: 'false', text: 'No' }] },
-    mixedModeCount: { label: 'Tests in Mixed Mode', desc: 'Number of tests of this mode when in Mixed super-mode (0 to skip)' }
+    mixedModeCount: { label: 'Tests in Mixed Mode', desc: 'Number of tests of this mode when in Mixed super-mode (0 to skip)' },
+    progressBar: { label: 'Progress Bar', desc: 'Show a marker of where you should be typing to reach the target WPM (N/A for Slow)', choices: [{ value: 'none', text: 'None' }, { value: 'cursor', text: 'Cursor' }, { value: 'deathwall', text: 'Death wall' }] }
 };
 
 // Build the modes table
@@ -72,7 +73,7 @@ async function buildTable() {
             }
 
             // Slow mode: mark certain fields as N/A
-            if (key === 'slow' && ['repetition', 'allowError', 'wpmReduction'].includes(field.key)) {
+            if (key === 'slow' && ['repetition', 'allowError', 'wpmReduction', 'progressBar'].includes(field.key)) {
                 td.textContent = 'N/A';
                 td.style.color = '#666';
                 td.style.textAlign = 'center';
